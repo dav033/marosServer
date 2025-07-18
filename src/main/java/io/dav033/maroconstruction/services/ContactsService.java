@@ -23,7 +23,6 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
                                 String.format("Contacto con nombre '%s' no encontrado", name))
                 );
 
-        // Convierte la entidad a DTO y la retorna
         return mapper.toDto(entity);
     }
 
