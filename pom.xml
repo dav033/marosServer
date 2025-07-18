@@ -19,9 +19,13 @@
 	<description>Server of marosconstruction</description>
 
 	<properties>
-		<java.version>24</java.version>
-		<!-- Versión de MapStruct -->
+		<!-- Versión de Java y MapStruct -->
+		<java.version>23</java.version>
 		<org.mapstruct.version>1.6.3</org.mapstruct.version>
+
+		<!-- Codificación por defecto -->
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 
 	<dependencies>
@@ -76,20 +80,34 @@
 	</dependencies>
 
 	<build>
+		<!-- Desactivar filtrado de recursos para copiar archivos tal cual -->
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>false</filtering>
+			</resource>
+		</resources>
+
 		<plugins>
-			<!-- Plugin de compilación para habilitar los annotation processors -->
+			<!-- Asegurar que Maven use UTF-8 al procesar recursos -->
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>3.3.1</version>
+				<configuration>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+
+			<!-- Plugin de compilación para habilitar annotation processors -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.8.1</version>
 				<configuration>
-					<!-- Para que MapStruct y Lombok vean los nombres de parámetros -->
 					<compilerArgs>
 						<arg>-parameters</arg>
 					</compilerArgs>
-					<!-- Asegura compilación con la versión de Java definida -->
 					<release>${java.version}</release>
-
 					<annotationProcessorPaths>
 						<!-- Lombok -->
 						<path>
@@ -103,7 +121,7 @@
 							<artifactId>mapstruct-processor</artifactId>
 							<version>${org.mapstruct.version}</version>
 						</path>
-						<!-- Binding entre Lombok y MapStruct -->
+						<!-- Lombok-MapStruct binding -->
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok-mapstruct-binding</artifactId>
