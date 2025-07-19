@@ -10,4 +10,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Render app
-        run: curl -fsS https://marosserver.onrender.com/ || exit 1
+        run: curl -fsS https://marosserver.onrender.com/contacts/all || exit 1
