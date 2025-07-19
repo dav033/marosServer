@@ -2,10 +2,8 @@ name: Keep Render App Awake
 
 on:
   schedule:
-    # cada 10 minutos entre 13:00 y 23:59 UTC
-    - cron: '*/10 13-23 * * *'
-    # cada 10 minutos entre 00:00 y 05:59 UTC
-    - cron: '*/10 0-5 * * *'
+    # cada 13 minutos, 24 h al día (UTC)
+    - cron: '*/13 * * * *'
 
 jobs:
   ping:
