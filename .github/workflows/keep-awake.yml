@@ -2,12 +2,13 @@ name: Keep Render App Awake
 
 on:
   schedule:
-    - cron: '*/14 11-23 * * *'
-    - cron: '*/14 0-4 * * *'
+    # cada 13 minutos, 24 h al día (UTC)
+    - cron: '*/13 * * * *'
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Render app
-        run: curl -fsS https://marosserver.onrender.com/ || exit 1
+        run: |
+          curl -fsS https://marosserver.onrender.com/contacts/all || exit 1
