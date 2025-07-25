@@ -26,4 +26,17 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
         return mapper.toDto(entity);
     }
 
+
+    public Contacts getContactById(Long id) {
+        assert repository != null;
+        ContactsEntity entity = repository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                String.format("Contacto con ID '%d' no encontrado", id))
+                );
+
+        return mapper.toDto(entity);
+
+    }
+
 }

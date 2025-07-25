@@ -1,5 +1,7 @@
 package io.dav033.maroconstruction.models;
 
+import io.dav033.maroconstruction.enums.LeadStatus;
+import io.dav033.maroconstruction.enums.LeadType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -40,9 +42,13 @@ public class LeadsEntity {
     @Column(name = "location", length = 255)
     private String location;
 
-    @ToString.Include
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", columnDefinition = "text")
-    private String status;
+    private LeadStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name ="lead_type", columnDefinition = "text")
+    private LeadType leadType;
 
     /**
      * Relación con ContactsEntity

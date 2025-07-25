@@ -1,5 +1,7 @@
 package io.dav033.maroconstruction.dto;
 
+import io.dav033.maroconstruction.enums.LeadStatus;
+import io.dav033.maroconstruction.enums.LeadType;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -15,7 +17,8 @@ public class Leads {
     private String name;
     private LocalDate startDate;
     private String location;
-    private String status;
+    private LeadStatus status;
     private Contacts contact;
     private ProjectType projectType;
+    private LeadType leadType;
 }

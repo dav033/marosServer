@@ -8,7 +8,6 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class ProjectType {
-
     private Long id;
     private String name;
 }
