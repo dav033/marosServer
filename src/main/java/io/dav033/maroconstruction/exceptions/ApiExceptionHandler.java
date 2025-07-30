@@ -13,21 +13,16 @@ import java.time.LocalDateTime;
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 
-
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex, WebRequest request) {
         ErrorResponse errorDetails = new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.NOT_FOUND.value(),
                 ex.getMessage(),
-                request.getDescription(false)
-        );
+                request.getDescription(false));
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(errorDetails);
     }
 
-    private ResponseEntity<ErrorResponse> buildResponseEntity(ErrorResponse body, HttpStatus status) {
-        return new ResponseEntity<>(body, status);
-    }
 }

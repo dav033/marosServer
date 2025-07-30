@@ -33,7 +33,6 @@ public class LeadsEntity {
     @Column(name = "name", length = 100, nullable = false)
     private String name;
 
-    // LocalDateAttributeConverter se aplica automáticamente
     @ToString.Include
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
@@ -61,24 +60,19 @@ public class LeadsEntity {
 
     /**
      * Relación con ProjectTypeEntity a través de la columna "type"
+     * Se ha eliminado CascadeType.PERSIST para evitar el error de entidad detached.
      */
     @ManyToOne(fetch = FetchType.LAZY,
-            cascade = { CascadeType.PERSIST, CascadeType.MERGE },
+            cascade = CascadeType.MERGE,
             optional = false)
     @JoinColumn(name = "type", nullable = false)
     private ProjectTypeEntity projectType;
 
-    /**
-     * Para exponer el ID de contacto sin inicializar la proxy
-     */
     @Transient
     public Long getContactId() {
         return (contact != null ? contact.getId() : null);
     }
 
-    /**
-     * Para exponer el ID de tipo de proyecto sin inicializar la proxy
-     */
     @Transient
     public Long getProjectTypeId() {
         return (projectType != null ? projectType.getId() : null);

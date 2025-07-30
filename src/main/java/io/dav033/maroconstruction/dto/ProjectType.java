@@ -10,4 +10,5 @@ import lombok.*;
 public class ProjectType {
     private Long id;
     private String name;
+    private String color;
 }

@@ -25,4 +25,7 @@ public class ProjectTypeEntity {
     @Column(name = "name", columnDefinition = "text")
     private String name;
 
+    @Column(name ="color", columnDefinition = "text")
+    private String color;
+
 }

@@ -2,7 +2,6 @@ package io.dav033.maroconstruction.models;
 
 import io.dav033.maroconstruction.enums.InvoiceStatus;
 import io.dav033.maroconstruction.enums.ProjectStatus;
-import io.hypersistence.utils.hibernate.type.array.FloatArrayType;
 import jakarta.persistence.*;
 import lombok.*;
 import io.hypersistence.utils.hibernate.type.array.ListArrayType;
