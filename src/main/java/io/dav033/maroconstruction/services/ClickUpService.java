@@ -39,8 +39,15 @@ public class ClickUpService {
             HttpHeaders headers = createHeaders();
             HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(taskRequest, headers);
 
-            log.info("Creando tarea en ClickUp: {}", taskRequest.getName());
-            log.debug("URL: {}, Payload: {}", url, taskRequest);
+            log.info("🚀 Creando tarea en ClickUp: {}", taskRequest.getName());
+            log.info("📋 Custom fields en request: {}", 
+                taskRequest.getCustomFields() != null ? taskRequest.getCustomFields().size() : 0);
+            if (taskRequest.getCustomFields() != null && !taskRequest.getCustomFields().isEmpty()) {
+                taskRequest.getCustomFields().forEach(field -> 
+                    log.info("   • Field ID: {}, Value: {}", field.getId(), field.getValue()));
+            }
+            log.debug("🌐 URL: {}", url);
+            log.debug("📦 Payload completo: {}", taskRequest);
 
             ResponseEntity<ClickUpTaskResponse> response = restTemplate.exchange(
                     url,

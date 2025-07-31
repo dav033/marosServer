@@ -50,7 +50,7 @@ public class ClickUpConfig {
     /**
      * Estado por defecto para nuevas tareas
      */
-    private String defaultStatus = "to do";
+    private String defaultStatus = "backlog";
     
     /**
      * Prioridad por defecto: 1 = Urgent, 2 = High, 3 = Normal, 4 = Low
