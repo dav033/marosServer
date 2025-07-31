@@ -8,5 +8,6 @@ public interface GenericMapper<T, E> {
     E toEntity(T dto);
     T toDto(E entity);
     List<T> toDtoList(List<E> entityList);
-    void updateEntity(T dto, @MappingTarget E entity);}
+    void updateEntity(T dto, @MappingTarget E entity);
+}
 

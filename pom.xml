@@ -104,6 +104,26 @@
 		</resources>
 
 		<plugins>
+			<!-- Agregar generated-sources al classpath -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>build-helper-maven-plugin</artifactId>
+				<version>3.4.0</version>
+				<executions>
+					<execution>
+						<id>add-source</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>add-source</goal>
+						</goals>
+						<configuration>
+							<sources>
+								<source>target/generated-sources/annotations</source>
+							</sources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<!-- Asegurar que Maven use UTF-8 al procesar recursos -->
 			<plugin>
 				<artifactId>maven-resources-plugin</artifactId>

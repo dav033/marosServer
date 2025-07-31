@@ -1,40 +1,39 @@
 package io.dav033.maroconstruction.mappers;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 
 import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
 
+import java.util.Map;
+
 @Mapper(componentModel = "spring")
 public interface SupabasePayloadMapper {
 
-    @Mapping(target = "id",
-             source = "record.id",
-             qualifiedByName = "toInteger")
-    @Mapping(target = "leadNumber",
-             source = "record.lead_number",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "name",
-             source = "record.name",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "leadType",
-             source = "record.lead_type",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "location",
-             source = "record.location",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "startDate",
-             source = "record.start_date",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "status",
-             source = "record.status",
-             qualifiedByName = "toStringObject")
-    @Mapping(target = "contactId",
-             source = "record.contact_id",
-             qualifiedByName = "toLong")
-    LeadPayloadDto toDto(SupabaseWebhookPayload payload);
+    // Método principal que decide de dónde extraer los datos
+    default LeadPayloadDto toDto(SupabaseWebhookPayload payload) {
+        // Para DELETE, usar oldRecord; para INSERT/UPDATE, usar record
+        Map<String, Object> sourceRecord = "DELETE".equals(payload.getType()) 
+            ? payload.getOldRecord() 
+            : payload.getRecord();
+            
+        if (sourceRecord == null) {
+            return new LeadPayloadDto();
+        }
+        
+        LeadPayloadDto dto = new LeadPayloadDto();
+        dto.setId(toInteger(sourceRecord.get("id")));
+        dto.setLeadNumber(toStringObject(sourceRecord.get("lead_number")));
+        dto.setName(toStringObject(sourceRecord.get("name")));
+        dto.setLeadType(toStringObject(sourceRecord.get("lead_type")));
+        dto.setLocation(toStringObject(sourceRecord.get("location")));
+        dto.setStartDate(toStringObject(sourceRecord.get("start_date")));
+        dto.setStatus(toStringObject(sourceRecord.get("status")));
+        dto.setContactId(toLong(sourceRecord.get("contact_id")));
+        
+        return dto;
+    }
 
     /** Convierte cualquier Object numérico o String a Integer. */
     @Named("toInteger")
