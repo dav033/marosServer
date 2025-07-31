@@ -16,6 +16,5 @@ public class ClickUpConfig {
     private String teamId;
     private String spaceId;
     private String listId;
-    private String defaultStatus = "backlog";
     private Integer defaultPriority = 3;
 }

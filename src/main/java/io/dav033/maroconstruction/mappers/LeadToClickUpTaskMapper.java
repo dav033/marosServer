@@ -1,6 +1,7 @@
 package io.dav033.maroconstruction.mappers;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +30,12 @@ public abstract class LeadToClickUpTaskMapper {
     @Mapping(target = "description", expression = "java(buildDescription(dto))")
     @Mapping(target = "tags", expression = "java(buildTags(dto.getLeadType()))")
     @Mapping(target = "priority", expression = "java(clickUpConfig.getDefaultPriority())")
+    @Mapping(target = "status", ignore = true)
     @Mapping(target = "customFields", expression = "java(customFieldsBuilder.build(dto))")
+    @Mapping(target = "startDate", expression = "java(convertDateStringToTimestamp(dto.getStartDate()))")
+    @Mapping(target = "assignees", ignore = true)
+    @Mapping(target = "dueDate", ignore = true)
+    @Mapping(target = "timeEstimate", ignore = true)
     public abstract ClickUpTaskRequest toClickUpTask(LeadPayloadDto dto);
 
     protected String buildDescription(LeadPayloadDto dto) {
@@ -65,5 +71,23 @@ public abstract class LeadToClickUpTaskMapper {
                 "lead",
                 Optional.ofNullable(leadType).map(String::toLowerCase).orElse("construction"),
                 "automated");
+    }
+
+    /**
+     * Convierte una fecha en formato string (YYYY-MM-DD) a timestamp en milisegundos para ClickUp
+     */
+    protected Long convertDateStringToTimestamp(String dateString) {
+        if (dateString == null || dateString.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            LocalDate date = LocalDate.parse(dateString);
+            // Convertir a timestamp en milisegundos (inicio del día en UTC)
+            return date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli();
+        } catch (Exception e) {
+            // Si no se puede parsear la fecha, retornar null
+            return null;
+        }
     }
 }
