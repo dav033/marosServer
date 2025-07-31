@@ -34,18 +34,26 @@ public class WebhookController {
         
         Map<String, Object> response = new HashMap<>();
         
-        ClickUpTaskResponse taskResponse = webhookService.processSupabaseWebhook(payload);
+        Object result = webhookService.processSupabaseWebhook(payload);
         
-        if (taskResponse != null) {
+        if (result instanceof ClickUpTaskResponse) {
+            ClickUpTaskResponse taskResponse = (ClickUpTaskResponse) result;
             response.put("success", true);
             response.put("message", "Tarea creada en ClickUp");
+            response.put("operation", "CREATE");
             response.put("clickup_task_id", taskResponse.getId());
             response.put("clickup_task_url", taskResponse.getUrl());
             log.info("Webhook procesado exitosamente. Tarea ClickUp creada: {}", taskResponse.getId());
+        } else if (result instanceof Boolean && (Boolean) result) {
+            response.put("success", true);
+            response.put("message", "Tarea eliminada de ClickUp");
+            response.put("operation", "DELETE");
+            log.info("Webhook procesado exitosamente. Tarea ClickUp eliminada");
         } else {
             response.put("success", true);
-            response.put("message", "Webhook procesado pero no se creó tarea");
-            log.info("Webhook procesado pero no se creó tarea en ClickUp");
+            response.put("message", "Webhook procesado pero no se realizó operación en ClickUp");
+            response.put("operation", "NONE");
+            log.info("Webhook procesado pero no se realizó operación en ClickUp");
         }
         
         return ResponseEntity.ok(response);
@@ -79,9 +87,10 @@ public class WebhookController {
         
         log.info("📋 Datos simulados de lead: {}", simulatedLeadData);
         
-        ClickUpTaskResponse taskResponse = webhookService.processSupabaseWebhook(simulatedPayload);
+        Object result = webhookService.processSupabaseWebhook(simulatedPayload);
         
-        if (taskResponse != null) {
+        if (result instanceof ClickUpTaskResponse) {
+            ClickUpTaskResponse taskResponse = (ClickUpTaskResponse) result;
             response.put("success", true);
             response.put("message", "Tarea de prueba creada en ClickUp con contacto real");
             response.put("contact_id", contactId);
@@ -93,6 +102,41 @@ public class WebhookController {
             response.put("success", false);
             response.put("message", "No se pudo crear la tarea de prueba");
             response.put("contact_id", contactId);
+        }
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/test-delete/{leadId}")
+    public ResponseEntity<Map<String, Object>> testDeleteWebhook(@PathVariable Long leadId) {
+        log.info("🧪 Test DELETE webhook iniciado para leadId: {}", leadId);
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        Map<String, Object> simulatedLeadData = new HashMap<>();
+        simulatedLeadData.put("id", leadId);
+        simulatedLeadData.put("lead_number", "LEAD-DELETE-TEST-" + leadId);
+        
+        SupabaseWebhookPayload simulatedPayload = new SupabaseWebhookPayload();
+        simulatedPayload.setTable("leads");
+        simulatedPayload.setType("DELETE");
+        simulatedPayload.setRecord(simulatedLeadData);
+        
+        log.info("📋 Datos simulados de lead para DELETE: {}", simulatedLeadData);
+        
+        Object result = webhookService.processSupabaseWebhook(simulatedPayload);
+        
+        if (result instanceof Boolean && (Boolean) result) {
+            response.put("success", true);
+            response.put("message", "Tarea de prueba eliminada de ClickUp");
+            response.put("lead_id", leadId);
+            response.put("operation", "DELETE");
+            log.info("✅ Test DELETE exitoso. Tarea ClickUp eliminada para leadId: {}", leadId);
+        } else {
+            response.put("success", false);
+            response.put("message", "No se pudo eliminar la tarea de prueba o no se encontró mapping");
+            response.put("lead_id", leadId);
+            response.put("operation", "DELETE_FAILED");
         }
         
         return ResponseEntity.ok(response);

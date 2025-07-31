@@ -60,6 +60,37 @@ public class ClickUpService {
         }
     }
 
+    public boolean deleteTask(String taskId) {
+        // Validar configuración antes de proceder
+        if (!isConfigured()) {
+            throw new ClickUpException("ClickUp no está configurado correctamente. Revisa las propiedades de configuración.");
+        }
+        
+        // Validar que el taskId no esté vacío
+        if (taskId == null || taskId.trim().isEmpty()) {
+            throw new ClickUpException("El ID de tarea es requerido para eliminar");
+        }
+        
+        try {
+            String url = urlBuilder.buildDeleteTaskUrl(taskId);
+            HttpEntity<Void> entity = new HttpEntity<>(headersProvider.get());
+
+            log.info("Eliminando tarea en ClickUp: {}", taskId);
+
+            restTemplate.delete(url, entity);
+
+            log.info("Tarea eliminada con éxito en ClickUp → id={}", taskId);
+            return true;
+            
+        } catch (RestClientException e) {
+            log.error("Error al comunicarse con ClickUp API para eliminar tarea: {}", e.getMessage(), e);
+            throw new ClickUpException("Error al eliminar tarea en ClickUp: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error inesperado al eliminar tarea en ClickUp: {}", e.getMessage(), e);
+            throw new ClickUpException("Error inesperado al eliminar tarea en ClickUp: " + e.getMessage(), e);
+        }
+    }
+
     public boolean isConfigured() {
         return urlBuilder.isConfigured();
     }
