@@ -23,51 +23,29 @@ public class LeadsController {
 
     @PostMapping("/type")
     public ResponseEntity<List<Leads>> getLeadsBytype(@RequestBody GetLeadsByTypeRequest request) {
-        try {
-
-            List<Leads> leads = leadsService.getLeadsByType(request.getType());
-
-            return ResponseEntity.ok(leads);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        List<Leads> leads = leadsService.getLeadsByType(request.getType());
+        return ResponseEntity.ok(leads);
     }
 
     @PostMapping("/new-contact")
     public ResponseEntity<Leads> createLeadByNewContact(@RequestBody CreateLeadByNewContactRequest request) {
-        try {
-            Leads lead = leadsService.CreateLeadByNewContact(request.getLead(), request.getContact());
-            return ResponseEntity.ok(lead);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        Leads lead = leadsService.CreateLeadByNewContact(request.getLead(), request.getContact());
+        return ResponseEntity.ok(lead);
     }
 
     @PostMapping("/existing-contact")
     public ResponseEntity<Leads> createLeadByExistingContact(@RequestBody CreateLeadByExistingContactRequest request) {
-        try {
-            Leads lead = leadsService.CreateLeadByExistingContact(request.getLead(), request.getContactId());
-            return ResponseEntity.ok(lead);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        Leads lead = leadsService.CreateLeadByExistingContact(request.getLead(), request.getContactId());
+        return ResponseEntity.ok(lead);
     }
 
     @DeleteMapping("/{leadId}")
     public ResponseEntity<String> deleteLead(@PathVariable Long leadId) {
-        try {
-            boolean deleted = leadsService.deleteLead(leadId);
-            if (deleted) {
-                return ResponseEntity.ok("Lead eliminado correctamente");
-            } else {
-                return ResponseEntity.notFound().build();
-            }
-        } catch (Exception e) {
-            System.out.println("Error al eliminar lead: " + e.getMessage());
-            return ResponseEntity.badRequest().body("Error al eliminar el lead: " + e.getMessage());
+        boolean deleted = leadsService.deleteLead(leadId);
+        if (deleted) {
+            return ResponseEntity.ok("Lead eliminado correctamente");
+        } else {
+            return ResponseEntity.notFound().build();
         }
     }
 }

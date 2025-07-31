@@ -5,9 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 
-/**
- * DTO para la respuesta de ClickUp al crear una tarea
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

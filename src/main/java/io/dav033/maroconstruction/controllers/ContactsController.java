@@ -19,21 +19,14 @@ public class ContactsController {
 
     @GetMapping("/all")
     public ResponseEntity<List<Contacts>> getContacts() {
-        try {
-            List<Contacts> contacts = contactsService.findAll();
-            return ResponseEntity.ok(contacts);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        List<Contacts> contacts = contactsService.findAll();
+        return ResponseEntity.ok(contacts);
     }
 
     @GetMapping
     public ResponseEntity<Contacts> getContactByName(@RequestBody GetContactByNameRequest request) {
-
         System.out.println("Fetching contact by name: " + request.getName());
         Contacts contact = contactsService.getContactByName(request.getName());
         return ResponseEntity.ok(contact);
-
     }
 }

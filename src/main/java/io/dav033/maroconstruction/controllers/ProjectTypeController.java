@@ -21,12 +21,7 @@ public class ProjectTypeController {
 
     @GetMapping("/all")
     public ResponseEntity<List<ProjectType>> getAllProjectTypes() {
-        try {
-            List<ProjectType> projectTypes = projectTypeService.findAll();
-            return ResponseEntity.ok(projectTypes);
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            return ResponseEntity.badRequest().build();
-        }
+        List<ProjectType> projectTypes = projectTypeService.findAll();
+        return ResponseEntity.ok(projectTypes);
     }
 }

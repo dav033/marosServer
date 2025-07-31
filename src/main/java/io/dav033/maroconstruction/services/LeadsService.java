@@ -4,6 +4,10 @@ import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.dto.Leads;
 import io.dav033.maroconstruction.enums.LeadStatus;
 import io.dav033.maroconstruction.enums.LeadType;
+import io.dav033.maroconstruction.exceptions.ContactExceptions;
+import io.dav033.maroconstruction.exceptions.DatabaseException;
+import io.dav033.maroconstruction.exceptions.LeadExceptions;
+import io.dav033.maroconstruction.exceptions.ProjectTypeExceptions;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
 import io.dav033.maroconstruction.models.LeadsEntity;
@@ -94,95 +98,79 @@ public class LeadsService
 
     @Transactional
     public Leads CreateLeadByNewContact(Leads lead, Contacts contact) {
+        // Asegurar que el contacto no tenga ID para que sea tratado como nuevo
+        contact.setId(null);
+        Contacts savedContact = contactsService.create(contact);
+
+        // Asegurar que el lead no tenga ID para que sea tratado como nuevo
+        lead.setId(null);
+        
+        // Si el status es null, asignar TO_DO automáticamente
+        if (lead.getStatus() == null) {
+            lead.setStatus(LeadStatus.TO_DO);
+        }
+        
+        // Generar el número de lead automáticamente
+        String leadNumber = generateLeadNumber(lead.getLeadType());
+        lead.setLeadNumber(leadNumber);
+
+        // Mapear el lead a entidad ANTES de asignar las relaciones
+        LeadsEntity leadEntity = leadMapper.toEntity(lead);
+
+        // Obtener la entidad del contacto desde la base de datos usando el ID
+        ContactsEntity contactEntity = contactsRepository.findById(savedContact.getId())
+                .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(savedContact.getId()));
+
+        // Obtener la entidad del projectType desde la base de datos
+        ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
+                .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
+
+        // Asignar las entidades al lead
+        leadEntity.setContact(contactEntity);
+        leadEntity.setProjectType(projectTypeEntity);
+
         try {
-            // Asegurar que el contacto no tenga ID para que sea tratado como nuevo
-            contact.setId(null);
-            Contacts savedContact = contactsService.create(contact);
-
-            // Asegurar que el lead no tenga ID para que sea tratado como nuevo
-            lead.setId(null);
-            
-            // Si el status es null, asignar TO_DO automáticamente
-            if (lead.getStatus() == null) {
-                lead.setStatus(LeadStatus.TO_DO);
-            }
-            
-            // Generar el número de lead automáticamente
-            String leadNumber = generateLeadNumber(lead.getLeadType());
-            lead.setLeadNumber(leadNumber);
-
-            // Mapear el lead a entidad ANTES de asignar las relaciones
-            LeadsEntity leadEntity = leadMapper.toEntity(lead);
-
-            // Obtener la entidad del contacto desde la base de datos usando el ID
-            ContactsEntity contactEntity = contactsRepository.findById(savedContact.getId())
-                    .orElseThrow(() -> new RuntimeException("Contacto no encontrado después de guardar"));
-
-            // Obtener la entidad del projectType desde la base de datos
-            ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
-                    .orElseThrow(() -> new RuntimeException("Tipo de proyecto no encontrado con ID: " + lead.getProjectType().getId()));
-
-            // Asignar las entidades al lead
-            leadEntity.setContact(contactEntity);
-            leadEntity.setProjectType(projectTypeEntity);
-
             LeadsEntity savedLeadEntity = repository.save(leadEntity);
-
             return leadMapper.toDto(savedLeadEntity);
         } catch (DataIntegrityViolationException e) {
-            // Log del error específico para debugging
-            System.err.println("Error de integridad de datos al crear lead: " + e.getMessage());
-
-            // Re-lanzar la excepción con un mensaje más claro
-            throw new RuntimeException(
-                    "Error al crear el lead. Puede ser un problema de secuencia en la base de datos. " +
-                            "Por favor, contacta al administrador del sistema.",
-                    e);
+            throw new LeadExceptions.LeadCreationException("Error de integridad de datos al crear el lead", e);
         }
     }
 
     @Transactional
     public Leads CreateLeadByExistingContact(Leads lead, Long contactId) {
+        // Asegurar que el lead no tenga ID para que sea tratado como nuevo
+        lead.setId(null);
+        
+        // Si el status es null, asignar TO_DO automáticamente
+        if (lead.getStatus() == null) {
+            lead.setStatus(LeadStatus.TO_DO);
+        }
+        
+        // Generar el número de lead automáticamente
+        String leadNumber = generateLeadNumber(lead.getLeadType());
+        lead.setLeadNumber(leadNumber);
+
+        // Mapear el lead a entidad ANTES de asignar las relaciones
+        LeadsEntity leadEntity = leadMapper.toEntity(lead);
+
+        // Obtener la entidad del contacto existente desde la base de datos
+        ContactsEntity contactEntity = contactsRepository.findById(contactId)
+                .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(contactId));
+
+        // Obtener la entidad del projectType desde la base de datos
+        ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
+                .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
+
+        // Asignar las entidades al lead
+        leadEntity.setContact(contactEntity);
+        leadEntity.setProjectType(projectTypeEntity);
+
         try {
-            // Asegurar que el lead no tenga ID para que sea tratado como nuevo
-            lead.setId(null);
-            
-            // Si el status es null, asignar TO_DO automáticamente
-            if (lead.getStatus() == null) {
-                lead.setStatus(LeadStatus.TO_DO);
-            }
-            
-            // Generar el número de lead automáticamente
-            String leadNumber = generateLeadNumber(lead.getLeadType());
-            lead.setLeadNumber(leadNumber);
-
-            // Mapear el lead a entidad ANTES de asignar las relaciones
-            LeadsEntity leadEntity = leadMapper.toEntity(lead);
-
-            // Obtener la entidad del contacto existente desde la base de datos
-            ContactsEntity contactEntity = contactsRepository.findById(contactId)
-                    .orElseThrow(() -> new RuntimeException("Contacto no encontrado con ID: " + contactId));
-
-            // Obtener la entidad del projectType desde la base de datos
-            ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
-                    .orElseThrow(() -> new RuntimeException("Tipo de proyecto no encontrado con ID: " + lead.getProjectType().getId()));
-
-            // Asignar las entidades al lead
-            leadEntity.setContact(contactEntity);
-            leadEntity.setProjectType(projectTypeEntity);
-
             LeadsEntity savedLeadEntity = repository.save(leadEntity);
-
             return leadMapper.toDto(savedLeadEntity);
         } catch (DataIntegrityViolationException e) {
-            // Log del error específico para debugging
-            System.err.println("Error de integridad de datos al crear lead: " + e.getMessage());
-
-            // Re-lanzar la excepción con un mensaje más claro
-            throw new RuntimeException(
-                    "Error al crear el lead. Puede ser un problema de secuencia en la base de datos. " +
-                            "Por favor, contacta al administrador del sistema.",
-                    e);
+            throw new LeadExceptions.LeadCreationException("Error de integridad de datos al crear el lead", e);
         }
     }
 
@@ -193,15 +181,15 @@ public class LeadsService
      */
     @Transactional
     public boolean deleteLead(Long leadId) {
+        if (!repository.existsById(leadId)) {
+            throw new LeadExceptions.LeadNotFoundException(leadId);
+        }
+        
         try {
-            if (repository.existsById(leadId)) {
-                repository.deleteById(leadId);
-                return true;
-            }
-            return false;
-        } catch (Exception e) {
-            System.err.println("Error al eliminar lead con ID " + leadId + ": " + e.getMessage());
-            throw new RuntimeException("Error al eliminar el lead", e);
+            repository.deleteById(leadId);
+            return true;
+        } catch (DataIntegrityViolationException e) {
+            throw new DatabaseException("No se puede eliminar el lead debido a referencias existentes", e);
         }
     }
 }
