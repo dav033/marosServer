@@ -2,6 +2,7 @@ package io.dav033.maroconstruction.services;
 
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
+import io.dav033.maroconstruction.dto.webhook.ClickUpTaskListResponse;
 import io.dav033.maroconstruction.exceptions.ClickUpException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -88,6 +89,61 @@ public class ClickUpService {
         } catch (Exception e) {
             log.error("Error inesperado al eliminar tarea en ClickUp: {}", e.getMessage(), e);
             throw new ClickUpException("Error inesperado al eliminar tarea en ClickUp: " + e.getMessage(), e);
+        }
+    }
+
+    public boolean deleteTaskByLeadNumber(String leadNumber) {
+        log.info("Buscando tarea para eliminar por lead_number: {}", leadNumber);
+        
+        String taskId = findTaskIdByLeadNumber(leadNumber);
+        if (taskId != null) {
+            return deleteTask(taskId);
+        } else {
+            log.warn("No se encontró tarea con lead_number: {}", leadNumber);
+            return false;
+        }
+    }
+
+    public String findTaskIdByLeadNumber(String leadNumber) {
+        if (!isConfigured()) {
+            throw new ClickUpException("ClickUp no está configurado correctamente.");
+        }
+        
+        try {
+            String url = urlBuilder.buildGetTasksUrl();
+            HttpEntity<Void> entity = new HttpEntity<>(headersProvider.get());
+
+            log.info("Obteniendo tareas de ClickUp para buscar lead_number: {}", leadNumber);
+
+            ClickUpTaskListResponse response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, ClickUpTaskListResponse.class
+            ).getBody();
+
+            if (response != null && response.getTasks() != null) {
+                for (ClickUpTaskListResponse.ClickUpTaskSummary task : response.getTasks()) {
+                    if (task.getCustomFields() != null) {
+                        for (ClickUpTaskListResponse.ClickUpTaskSummary.CustomFieldValue field : task.getCustomFields()) {
+                            // ID del custom field para lead_number (del CustomFieldsBuilder)
+                            if ("53d6e312-0f63-40ba-8f87-1f3092d8b322".equals(field.getId()) && 
+                                leadNumber.equals(String.valueOf(field.getValue()))) {
+                                
+                                log.info("Encontrada tarea con lead_number {}: taskId={}", leadNumber, task.getId());
+                                return task.getId();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            log.warn("No se encontró ninguna tarea con lead_number: {}", leadNumber);
+            return null;
+            
+        } catch (RestClientException e) {
+            log.error("Error al buscar tareas en ClickUp: {}", e.getMessage(), e);
+            throw new ClickUpException("Error al buscar tareas en ClickUp: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error inesperado al buscar tareas: {}", e.getMessage(), e);
+            throw new ClickUpException("Error inesperado al buscar tareas: " + e.getMessage(), e);
         }
     }
 

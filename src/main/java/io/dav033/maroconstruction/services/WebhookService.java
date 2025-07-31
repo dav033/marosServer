@@ -4,8 +4,6 @@ import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
 import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import io.dav033.maroconstruction.mappers.SupabasePayloadMapper;
-import io.dav033.maroconstruction.models.LeadClickUpMapping;
-import io.dav033.maroconstruction.repositories.LeadClickUpMappingRepository;
 import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class WebhookService {
 
     private final ClickUpService clickUpService;
-    private final LeadClickUpMappingRepository mappingRepository;
     private final SupabasePayloadMapper payloadMapper;
     private final LeadToClickUpTaskMapper taskMapper;
 
@@ -58,25 +55,7 @@ public class WebhookService {
         log.info("Procesando INSERT de lead");
         
         LeadPayloadDto dto = payloadMapper.toDto(payload);
-        ClickUpTaskResponse taskResponse = clickUpService.createTask(
-            taskMapper.toClickUpTask(dto)
-        );
-
-        // Guardar el mapping entre lead y tarea de ClickUp
-        if (taskResponse != null && dto.getId() != null) {
-            LeadClickUpMapping mapping = LeadClickUpMapping.builder()
-                .leadId(dto.getId().longValue())
-                .leadNumber(dto.getLeadNumber())
-                .clickUpTaskId(taskResponse.getId())
-                .clickUpTaskUrl(taskResponse.getUrl())
-                .build();
-            
-            mappingRepository.save(mapping);
-            log.info("Mapping guardado: leadId={} → clickUpTaskId={}", 
-                dto.getId(), taskResponse.getId());
-        }
-
-        return taskResponse;
+        return clickUpService.createTask(taskMapper.toClickUpTask(dto));
     }
 
     private Boolean handleDelete(SupabaseWebhookPayload payload) {
@@ -84,27 +63,18 @@ public class WebhookService {
         
         LeadPayloadDto dto = payloadMapper.toDto(payload);
         
-        // Buscar el mapping para obtener el ID de la tarea en ClickUp
-        var mappingOpt = dto.getId() != null 
-            ? mappingRepository.findByLeadId(dto.getId().longValue())
-            : mappingRepository.findByLeadNumber(dto.getLeadNumber());
-            
-        if (mappingOpt.isEmpty()) {
-            log.warn("No se encontró mapping para lead ID={} o leadNumber={}", 
-                dto.getId(), dto.getLeadNumber());
+        if (dto.getLeadNumber() == null || dto.getLeadNumber().trim().isEmpty()) {
+            log.warn("No se puede eliminar: lead_number no disponible en el payload");
             return false;
         }
-
-        LeadClickUpMapping mapping = mappingOpt.get();
         
-        // Eliminar la tarea en ClickUp
-        boolean deleted = clickUpService.deleteTask(mapping.getClickUpTaskId());
+        // Buscar y eliminar la tarea por lead_number usando custom fields
+        boolean deleted = clickUpService.deleteTaskByLeadNumber(dto.getLeadNumber());
         
         if (deleted) {
-            // Eliminar el mapping de la base de datos
-            mappingRepository.delete(mapping);
-            log.info("Lead y tarea eliminados: leadId={} → clickUpTaskId={}", 
-                mapping.getLeadId(), mapping.getClickUpTaskId());
+            log.info("Lead y tarea eliminados exitosamente: leadNumber={}", dto.getLeadNumber());
+        } else {
+            log.warn("No se pudo eliminar la tarea para leadNumber={}", dto.getLeadNumber());
         }
 
         return deleted;
