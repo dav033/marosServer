@@ -88,15 +88,27 @@ public class WebhookService {
             try {
                 contactData = contactsService.getContactById(contactId);
                 if (contactData != null) {
-                    contactInfo = String.format("\\n**Información del Contacto:**\\n" +
-                        "- **Empresa:** %s\\n" +
-                        "- **Contacto:** %s\\n" +
-                        "- **Email:** %s\\n" +
-                        "- **Teléfono:** %s\\n",
-                        contactData.getCompanyName() != null ? contactData.getCompanyName() : "No especificado",
-                        contactData.getName() != null ? contactData.getName() : "No especificado", 
-                        contactData.getEmail() != null ? contactData.getEmail() : "No especificado",
-                        contactData.getPhone() != null ? contactData.getPhone() : "No especificado");
+                    StringBuilder contactBuilder = new StringBuilder("\\n**Información del Contacto:**\\n");
+                    
+                    // Solo agregar campos que realmente existen
+                    if (contactData.getCompanyName() != null && !contactData.getCompanyName().trim().isEmpty()) {
+                        contactBuilder.append("- **Empresa:** ").append(contactData.getCompanyName()).append("\\n");
+                    }
+                    if (contactData.getName() != null && !contactData.getName().trim().isEmpty()) {
+                        contactBuilder.append("- **Contacto:** ").append(contactData.getName()).append("\\n");
+                    }
+                    if (contactData.getEmail() != null && !contactData.getEmail().trim().isEmpty()) {
+                        contactBuilder.append("- **Email:** ").append(contactData.getEmail()).append("\\n");
+                    }
+                    if (contactData.getPhone() != null && !contactData.getPhone().trim().isEmpty()) {
+                        contactBuilder.append("- **Teléfono:** ").append(contactData.getPhone()).append("\\n");
+                    }
+                    
+                    // Solo usar la información si hay al menos un campo
+                    String contactContent = contactBuilder.toString();
+                    if (!contactContent.equals("\\n**Información del Contacto:**\\n")) {
+                        contactInfo = contactContent;
+                    }
                 }
             } catch (Exception e) {
                 log.warn("No se pudo obtener información del contacto ID {}: {}", contactId, e.getMessage());
@@ -218,46 +230,47 @@ public class WebhookService {
         String phoneFromLead = leadData.get("phone") != null ? leadData.get("phone").toString() : null;
         
         // 🎯 USAR DATOS REALES DEL CONTACTO CUANDO ESTÉN DISPONIBLES
-        String contactName = contactData != null ? contactData.getName() : 
-            (leadName != null ? leadName : "Cliente por definir");
+        String contactName = contactData != null ? contactData.getName() : null;
         String contactPhone = contactData != null ? contactData.getPhone() : phoneFromLead;
         String contactEmail = contactData != null ? contactData.getEmail() : null;
         String contactAddress = contactData != null ? contactData.getAddress() : null;
         String companyName = contactData != null ? contactData.getCompanyName() : null;
         
-        // 👤 Contact Name (524a8b7c-cfb7-4361-886e-59a019f8c5b5) - SOLO NOMBRE REAL (SIN TELÉFONO)
-        String contactNameValue = contactName;
+        // 👤 Contact Name (524a8b7c-cfb7-4361-886e-59a019f8c5b5) - SOLO SI EXISTE NOMBRE REAL
+        if (contactName != null && !contactName.trim().isEmpty() && !contactName.equals("Cliente por definir")) {
+            ClickUpTaskRequest.CustomField contactNameField = ClickUpTaskRequest.CustomField.builder()
+                .id("524a8b7c-cfb7-4361-886e-59a019f8c5b5")
+                .value(contactName.trim())
+                .build();
+            customFields.add(contactNameField);
+            log.info("✅ Contact Name field agregado: Value={}", contactName);
+        } else {
+            log.info("⚠️ Contact Name omitido - no hay nombre real disponible");
+        }
         
-        ClickUpTaskRequest.CustomField contactNameField = ClickUpTaskRequest.CustomField.builder()
-            .id("524a8b7c-cfb7-4361-886e-59a019f8c5b5")
-            .value(contactNameValue)
-            .build();
-        customFields.add(contactNameField);
-        log.info("✅ Contact Name field agregado: Value={}", contactNameValue);
+        // 🏢 Customer Name (c8dbf709-6ef9-479f-a915-b20518ac30e6) - SOLO SI EXISTE COMPAÑÍA
+        if (companyName != null && !companyName.trim().isEmpty()) {
+            ClickUpTaskRequest.CustomField customerNameField = ClickUpTaskRequest.CustomField.builder()
+                .id("c8dbf709-6ef9-479f-a915-b20518ac30e6")
+                .value(companyName.trim())
+                .build();
+            customFields.add(customerNameField);
+            log.info("✅ Customer Name field agregado: Value={}", companyName);
+        } else {
+            log.info("⚠️ Customer Name omitido - no hay companyName disponible");
+        }
         
-        // 🏢 Customer Name (c8dbf709-6ef9-479f-a915-b20518ac30e6) - COMPAÑÍA REAL
-        String customerNameValue = companyName != null ? companyName :
-            (contactId != null ? "Customer ID: " + contactId : 
-            (leadType != null ? "Proyecto " + leadType : "Proyecto de Construcción"));
-            
-        ClickUpTaskRequest.CustomField customerNameField = ClickUpTaskRequest.CustomField.builder()
-            .id("c8dbf709-6ef9-479f-a915-b20518ac30e6")
-            .value(customerNameValue)
-            .build();
-        customFields.add(customerNameField);
-        log.info("✅ Customer Name field agregado: Value={}", customerNameValue);
-        
-        // 📧 Email (f2220992-2039-4a6f-9717-b53ede8f5ec1) - EMAIL REAL DEL CONTACTO
-        String emailValue = contactEmail != null ? contactEmail :
-            (contactId != null ? "contacto_" + contactId + "@pendiente.com" :
-            (leadNumber != null ? leadNumber.toLowerCase().replace(" ", "_") + "@cliente.com" : "contacto@pendiente.com"));
-            
-        ClickUpTaskRequest.CustomField emailField = ClickUpTaskRequest.CustomField.builder()
-            .id("f2220992-2039-4a6f-9717-b53ede8f5ec1")
-            .value(emailValue)
-            .build();
-        customFields.add(emailField);
-        log.info("✅ Email field agregado: Value={}", emailValue);
+        // 📧 Email (f2220992-2039-4a6f-9717-b53ede8f5ec1) - SOLO SI EXISTE EMAIL REAL
+        if (contactEmail != null && !contactEmail.trim().isEmpty()) {
+            ClickUpTaskRequest.CustomField emailField = ClickUpTaskRequest.CustomField.builder()
+                .id("f2220992-2039-4a6f-9717-b53ede8f5ec1")
+                .value(contactEmail.trim())
+                .build();
+            customFields.add(emailField);
+            log.info("✅ Email field agregado: Value={}", contactEmail);
+        } else {
+            log.info("⚠️ Email omitido - no hay email disponible");
+        }
         
         // 📞 Phone Number (Text) (9edb199d-5c9f-404f-84f1-ad6a78597175) - TELÉFONO REAL DEL CONTACTO
         if (contactPhone != null && !contactPhone.trim().isEmpty()) {
@@ -279,26 +292,16 @@ public class WebhookService {
             log.info("✅ Client Contact Number field agregado: Value={}", contactPhone);
         }
         
-        // 🏠 Address (Text) (401a9851-6f11-4043-b577-4c7b3f03fb03) - DIRECCIÓN REAL DEL CONTACTO
-        if (contactAddress != null && !contactAddress.trim().isEmpty()) {
+        // 🏠 Address (Text) (401a9851-6f11-4043-b577-4c7b3f03fb03) - DIRECCIÓN DEL LEAD (location)
+        if (location != null && !location.trim().isEmpty()) {
             ClickUpTaskRequest.CustomField addressTextField = ClickUpTaskRequest.CustomField.builder()
                 .id("401a9851-6f11-4043-b577-4c7b3f03fb03")
-                .value(contactAddress.trim())
+                .value(location.trim())
                 .build();
             customFields.add(addressTextField);
-            log.info("✅ Address (Text) field agregado (contacto): Value={}", contactAddress);
+            log.info("✅ Address (Text) field agregado (location del lead): Value={}", location);
         } else {
-            // Si no hay address del contacto, usar DIRECCIÓN REAL por defecto
-            String defaultAddress = contactId != null 
-                ? "8950 SW 74th Ct, Miami, FL 33156"  // DIRECCIÓN REAL en Miami
-                : "Miami, FL (Área de servicio)";
-            
-            ClickUpTaskRequest.CustomField addressTextField = ClickUpTaskRequest.CustomField.builder()
-                .id("401a9851-6f11-4043-b577-4c7b3f03fb03")
-                .value(defaultAddress)
-                .build();
-            customFields.add(addressTextField);
-            log.info("✅ Address (Text) field agregado (default real): Value={}", defaultAddress);
+            log.info("⚠️ Address omitido - no hay location en el lead");
         }
         
         // 🎯 Lead # (53d6e312-0f63-40ba-8f87-1f3092d8b322) - LEAD NUMBER
