@@ -57,10 +57,6 @@ public class LeadsService
         return repository.findAllLeadNumbersByType(leadType);
     }
 
-    /**
-     * Genera el siguiente número de lead para el tipo y mes/año actual
-     * Formato: XXX-MMYY (ej: 001-0725)
-     */
     private String generateLeadNumber(LeadType leadType) {
         LocalDate now = LocalDate.now();
         String monthYear = now.format(DateTimeFormatter.ofPattern("MMyy"));
@@ -70,7 +66,7 @@ public class LeadsService
         
         int nextSequence = 1;
         if (!allLeadNumbers.isEmpty()) {
-            // Extraer solo la parte numérica (XXX) de cada número de lead
+      
             List<Integer> sequences = allLeadNumbers.stream()
                 .map(leadNumber -> {
                     try {
