@@ -22,9 +22,10 @@ public class ClickUpHeadersProvider {
 
         String token = config.getAccessToken();
         if (token != null && !token.isBlank()) {
-            // ClickUp requiere el formato exacto del header de autorización
-            headers.set("Authorization", "Bearer " + token);
-            log.debug("Authorization header configurado para ClickUp");
+            // Para Personal Access Tokens (pk_), ClickUp NO requiere "Bearer "
+            // Solo para OAuth tokens se requiere "Bearer "
+            headers.set("Authorization", token);
+            log.info("Token configurado para ClickUp: {}", token.substring(0, Math.min(10, token.length())) + "...");
         } else {
             log.warn("No se encontró token de acceso para ClickUp (config.clickup.access-token)");
         }
