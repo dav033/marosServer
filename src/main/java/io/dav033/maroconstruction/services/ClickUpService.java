@@ -74,13 +74,20 @@ public class ClickUpService {
         
         try {
             String url = urlBuilder.buildDeleteTaskUrl(taskId);
-            HttpEntity<Void> entity = new HttpEntity<>(headersProvider.get());
+            HttpHeaders headers = headersProvider.get();
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
 
             log.info("Eliminando tarea en ClickUp: {}", taskId);
 
-            restTemplate.delete(url, entity);
+            // Usar exchange en lugar de delete para poder pasar headers
+            ResponseEntity<Void> response = restTemplate.exchange(
+                url, 
+                HttpMethod.DELETE, 
+                entity, 
+                Void.class
+            );
 
-            log.info("Tarea eliminada con éxito en ClickUp → id={}", taskId);
+            log.info("Tarea eliminada con éxito en ClickUp → id={}, status={}", taskId, response.getStatusCode());
             return true;
             
         } catch (RestClientException e) {
