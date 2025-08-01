@@ -12,10 +12,6 @@ public class ContactInfoFormatter {
 
     private final ContactsService contactsService;
 
-    /**
-     * Devuelve una sección de texto con los datos del contacto,
-     * o una línea con el ID si no existe o falla la consulta.
-     */
     public String formatFor(Long contactId) {
         if (contactId == null) {
             return "";
@@ -23,21 +19,19 @@ public class ContactInfoFormatter {
         try {
             Contacts c = contactsService.getContactById(contactId);
             if (c == null) {
-                return "\n**Contacto ID:** " + contactId + "\n";
+                return "\n**Contact ID:** " + contactId + "\n";
             }
-            StringBuilder sb = new StringBuilder("\n**Información del Contacto:**\n");
-            appendIf(sb, "Empresa",  c.getCompanyName());
-            appendIf(sb, "Contacto", c.getName());
+            StringBuilder sb = new StringBuilder("\n**Contact Information:**\n");
+            appendIf(sb, "Company",  c.getCompanyName());
+            appendIf(sb, "Contact", c.getName());
             appendIf(sb, "Email",    c.getEmail());
-            appendIf(sb, "Teléfono", c.getPhone());
+            appendIf(sb, "Phone", c.getPhone());
             String result = sb.toString();
-            // Si no se añadió ninguna línea, no devolvemos la cabecera
-            return result.equals("\n**Información del Contacto:**\n")
+            return result.equals("\n**Contact Information:**\n")
                 ? ""
                 : result;
         } catch (Exception e) {
-            // En caso de error al obtener el contacto
-            return "\n**Contacto ID:** " + contactId + "\n";
+            return "\n**Contact ID:** " + contactId + "\n";
         }
     }
 

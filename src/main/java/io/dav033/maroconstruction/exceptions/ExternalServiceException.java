@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción para errores de servicios externos
- */
 public class ExternalServiceException extends BaseException {
 
     public ExternalServiceException(String message) {

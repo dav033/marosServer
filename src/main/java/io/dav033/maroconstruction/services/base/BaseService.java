@@ -13,9 +13,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public abstract class BaseService<
         D,               // DTO
-        ID,              // Tipo de la clave primaria
-        E,               // Entidad JPA
-        R extends JpaRepository<E, ID>  // Repositorio
+        ID,              // Primary key type
+        E,               // JPA Entity
+        R extends JpaRepository<E, ID>  // Repository
         > implements CrudService<D, ID> {
 
     protected final R repository;
@@ -43,7 +43,7 @@ public abstract class BaseService<
         return repository.findById(id)
                 .map(mapper::toDto)
                 .orElseThrow(() ->
-                        new EntityNotFoundException("Entidad no encontrada con id " + id)
+                        new EntityNotFoundException("Entity not found with id " + id)
                 );
     }
 
@@ -52,7 +52,7 @@ public abstract class BaseService<
     public D update(ID id, D dto) {
         E entity = repository.findById(id)
                 .orElseThrow(() ->
-                        new EntityNotFoundException("Entidad no encontrada con id " + id)
+                        new EntityNotFoundException("Entity not found with id " + id)
                 );
         mapper.updateEntity(dto, entity);
         E saved = repository.save(entity);

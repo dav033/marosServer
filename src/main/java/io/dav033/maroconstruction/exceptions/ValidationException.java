@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción para errores de validación de datos
- */
 public class ValidationException extends BaseException {
 
     public ValidationException(String message) {

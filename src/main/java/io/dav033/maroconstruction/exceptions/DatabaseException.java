@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción para errores de base de datos
- */
 public class DatabaseException extends BaseException {
 
     public DatabaseException(String message) {

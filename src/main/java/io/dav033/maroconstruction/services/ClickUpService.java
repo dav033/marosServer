@@ -24,14 +24,12 @@ public class ClickUpService {
     private final RestTemplate restTemplate;
 
     public ClickUpTaskResponse createTask(ClickUpTaskRequest taskRequest) {
-        // Validar configuración antes de proceder
         if (!isConfigured()) {
-            throw new ClickUpException("ClickUp no está configurado correctamente. Revisa las propiedades de configuración.");
+            throw new ClickUpException("ClickUp is not configured correctly. Check configuration properties.");
         }
         
-        // Validar que el request no esté vacío
         if (taskRequest == null || taskRequest.getName() == null || taskRequest.getName().trim().isEmpty()) {
-            throw new ClickUpException("El request de tarea es inválido: nombre de tarea es requerido");
+            throw new ClickUpException("Task request is invalid: task name is required");
         }
         
         try {
@@ -44,7 +42,7 @@ public class ClickUpService {
             ClickUpTaskResponse response = restTemplate.postForObject(url, entity, ClickUpTaskResponse.class);
 
             if (response == null) {
-                throw new ClickUpException("La respuesta de ClickUp fue nula");
+                throw new ClickUpException("ClickUp response was null");
             }
 
             log.info(
@@ -54,22 +52,20 @@ public class ClickUpService {
             
         } catch (RestClientException e) {
             log.error("Error al comunicarse con ClickUp API: {}", e.getMessage(), e);
-            throw new ClickUpException("Error al crear tarea en ClickUp: " + e.getMessage(), e);
+            throw new ClickUpException("Error creating task in ClickUp: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Error inesperado al crear tarea en ClickUp: {}", e.getMessage(), e);
-            throw new ClickUpException("Error inesperado al crear tarea en ClickUp: " + e.getMessage(), e);
+            throw new ClickUpException("Unexpected error creating task in ClickUp: " + e.getMessage(), e);
         }
     }
 
     public boolean deleteTask(String taskId) {
-        // Validar configuración antes de proceder
         if (!isConfigured()) {
-            throw new ClickUpException("ClickUp no está configurado correctamente. Revisa las propiedades de configuración.");
+            throw new ClickUpException("ClickUp is not configured correctly. Check configuration properties.");
         }
         
-        // Validar que el taskId no esté vacío
         if (taskId == null || taskId.trim().isEmpty()) {
-            throw new ClickUpException("El ID de tarea es requerido para eliminar");
+            throw new ClickUpException("Task ID is required for deletion");
         }
         
         try {
@@ -92,10 +88,10 @@ public class ClickUpService {
             
         } catch (RestClientException e) {
             log.error("Error al comunicarse con ClickUp API para eliminar tarea: {}", e.getMessage(), e);
-            throw new ClickUpException("Error al eliminar tarea en ClickUp: " + e.getMessage(), e);
+            throw new ClickUpException("Error deleting task in ClickUp: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Error inesperado al eliminar tarea en ClickUp: {}", e.getMessage(), e);
-            throw new ClickUpException("Error inesperado al eliminar tarea en ClickUp: " + e.getMessage(), e);
+            throw new ClickUpException("Unexpected error deleting task in ClickUp: " + e.getMessage(), e);
         }
     }
 
@@ -113,7 +109,7 @@ public class ClickUpService {
 
     public String findTaskIdByLeadNumber(String leadNumber) {
         if (!isConfigured()) {
-            throw new ClickUpException("ClickUp no está configurado correctamente.");
+            throw new ClickUpException("ClickUp is not configured correctly.");
         }
         
         try {
@@ -130,7 +126,6 @@ public class ClickUpService {
                 for (ClickUpTaskListResponse.ClickUpTaskSummary task : response.getTasks()) {
                     if (task.getCustomFields() != null) {
                         for (ClickUpTaskListResponse.ClickUpTaskSummary.CustomFieldValue field : task.getCustomFields()) {
-                            // ID del custom field para lead_number (del CustomFieldsBuilder)
                             if ("53d6e312-0f63-40ba-8f87-1f3092d8b322".equals(field.getId()) && 
                                 leadNumber.equals(String.valueOf(field.getValue()))) {
                                 
@@ -147,10 +142,10 @@ public class ClickUpService {
             
         } catch (RestClientException e) {
             log.error("Error al buscar tareas en ClickUp: {}", e.getMessage(), e);
-            throw new ClickUpException("Error al buscar tareas en ClickUp: " + e.getMessage(), e);
+            throw new ClickUpException("Error searching tasks in ClickUp: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Error inesperado al buscar tareas: {}", e.getMessage(), e);
-            throw new ClickUpException("Error inesperado al buscar tareas: " + e.getMessage(), e);
+            throw new ClickUpException("Unexpected error searching tasks: " + e.getMessage(), e);
         }
     }
 

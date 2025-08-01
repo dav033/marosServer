@@ -39,23 +39,22 @@ public class WebhookController {
             if (!"leads".equals(payload.getTable())) {
                 log.debug("Ignorado: no es tabla leads");
                 response.put("status", "ignored");
-                response.put("message", "No es tabla leads");
+                response.put("message", "Not leads table");
                 return ResponseEntity.ok(response);
             }
 
-            // Delegar a los servicios específicos según el tipo de operación
             switch (payload.getType()) {
                 case "INSERT":
                     var insertResult = leadInsertService.processLeadInsert(payload);
                     if (insertResult != null) {
                         log.info("Webhook procesado exitosamente: tarea creada en ClickUp");
                         response.put("status", "success");
-                        response.put("message", "Tarea creada en ClickUp");
+                        response.put("message", "Task created in ClickUp");
                         response.put("clickup_task", insertResult);
                     } else {
                         log.info("Webhook procesado pero no se realizó operación en ClickUp");
                         response.put("status", "processed");
-                        response.put("message", "Procesado pero no se creó tarea en ClickUp");
+                        response.put("message", "Processed but ClickUp task not created");
                     }
                     break;
                     
@@ -64,12 +63,12 @@ public class WebhookController {
                     if (deleteResult) {
                         log.info("Webhook procesado exitosamente: tarea eliminada de ClickUp");
                         response.put("status", "success");
-                        response.put("message", "Tarea eliminada de ClickUp");
+                        response.put("message", "Task deleted from ClickUp");
                         response.put("deleted", true);
                     } else {
                         log.info("Webhook procesado pero no se realizó operación en ClickUp");
                         response.put("status", "processed");
-                        response.put("message", "Procesado pero no se eliminó tarea de ClickUp");
+                        response.put("message", "Processed but ClickUp task not deleted");
                         response.put("deleted", false);
                     }
                     break;
@@ -77,7 +76,7 @@ public class WebhookController {
                 default:
                     log.debug("Tipo de operación no soportado: {}", payload.getType());
                     response.put("status", "ignored");
-                    response.put("message", "Tipo de operación no soportado: " + payload.getType());
+                    response.put("message", "Operation type not supported: " + payload.getType());
                     break;
             }
             
@@ -86,7 +85,7 @@ public class WebhookController {
         } catch (Exception e) {
             log.error("Error al procesar webhook Supabase", e);
             response.put("status", "error");
-            response.put("message", "Error interno del servidor");
+            response.put("message", "Internal server error");
             response.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }

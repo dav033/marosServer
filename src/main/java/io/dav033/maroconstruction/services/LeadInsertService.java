@@ -32,17 +32,17 @@ public class LeadInsertService {
             LeadPayloadDto dto = payloadMapper.toDto(payload);
             
             if (dto.getLeadNumber() == null || dto.getLeadNumber().trim().isEmpty()) {
-                log.warn("No se puede crear tarea: lead_number no disponible en el payload");
+                log.warn("Cannot create task: lead_number not available in payload");
                 return null;
             }
             
             ClickUpTaskResponse response = clickUpService.createTask(taskMapper.toClickUpTask(dto));
             
             if (response != null) {
-                log.info("Tarea creada exitosamente en ClickUp: leadNumber={}, taskId={}", 
+                log.info("Task created successfully in ClickUp: leadNumber={}, taskId={}", 
                         dto.getLeadNumber(), response.getId());
             } else {
-                log.warn("No se pudo crear la tarea en ClickUp para leadNumber={}", dto.getLeadNumber());
+                log.warn("Could not create task in ClickUp for leadNumber={}", dto.getLeadNumber());
             }
             
             return response;

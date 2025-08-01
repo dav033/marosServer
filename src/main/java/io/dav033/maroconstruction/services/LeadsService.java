@@ -54,9 +54,6 @@ public class LeadsService
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Obtiene todos los números de lead válidos para el tipo especificado
-     */
     public List<String> getAllLeadNumbers(LeadType leadType) {
         return repository.findAllLeadNumbersByType(leadType);
     }
@@ -65,7 +62,6 @@ public class LeadsService
         LocalDate now = LocalDate.now();
         String monthYear = now.format(DateTimeFormatter.ofPattern("MMyy"));
         
-        // Obtener todos los números de lead válidos
         List<String> allLeadNumbers = getAllLeadNumbers(leadType);
         
         int nextSequence = 1;
@@ -83,11 +79,10 @@ public class LeadsService
                         return 0;
                     }
                 })
-                .filter(seq -> seq > 0) // Filtrar valores inválidos
-                .sorted((a, b) -> b.compareTo(a)) // Ordenar de mayor a menor
+                .filter(seq -> seq > 0)
+                .sorted((a, b) -> b.compareTo(a))
                 .collect(Collectors.toList());
             
-            // Tomar el mayor número y sumarle 1
             if (!sequences.isEmpty()) {
                 nextSequence = sequences.get(0) + 1;
             }
@@ -98,34 +93,26 @@ public class LeadsService
 
     @Transactional
     public Leads CreateLeadByNewContact(Leads lead, Contacts contact) {
-        // Asegurar que el contacto no tenga ID para que sea tratado como nuevo
         contact.setId(null);
         Contacts savedContact = contactsService.create(contact);
 
-        // Asegurar que el lead no tenga ID para que sea tratado como nuevo
         lead.setId(null);
         
-        // Si el status es null, asignar TO_DO automáticamente
         if (lead.getStatus() == null) {
             lead.setStatus(LeadStatus.TO_DO);
         }
         
-        // Generar el número de lead automáticamente
         String leadNumber = generateLeadNumber(lead.getLeadType());
         lead.setLeadNumber(leadNumber);
 
-        // Mapear el lead a entidad ANTES de asignar las relaciones
         LeadsEntity leadEntity = leadMapper.toEntity(lead);
 
-        // Obtener la entidad del contacto desde la base de datos usando el ID
         ContactsEntity contactEntity = contactsRepository.findById(savedContact.getId())
                 .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(savedContact.getId()));
 
-        // Obtener la entidad del projectType desde la base de datos
         ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
                 .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
 
-        // Asignar las entidades al lead
         leadEntity.setContact(contactEntity);
         leadEntity.setProjectType(projectTypeEntity);
 
@@ -133,36 +120,29 @@ public class LeadsService
             LeadsEntity savedLeadEntity = repository.save(leadEntity);
             return leadMapper.toDto(savedLeadEntity);
         } catch (DataIntegrityViolationException e) {
-            throw new LeadExceptions.LeadCreationException("Error de integridad de datos al crear el lead", e);
+            throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", e);
         }
     }
 
     @Transactional
     public Leads CreateLeadByExistingContact(Leads lead, Long contactId) {
-        // Asegurar que el lead no tenga ID para que sea tratado como nuevo
         lead.setId(null);
         
-        // Si el status es null, asignar TO_DO automáticamente
         if (lead.getStatus() == null) {
             lead.setStatus(LeadStatus.TO_DO);
         }
         
-        // Generar el número de lead automáticamente
         String leadNumber = generateLeadNumber(lead.getLeadType());
         lead.setLeadNumber(leadNumber);
 
-        // Mapear el lead a entidad ANTES de asignar las relaciones
         LeadsEntity leadEntity = leadMapper.toEntity(lead);
 
-        // Obtener la entidad del contacto existente desde la base de datos
         ContactsEntity contactEntity = contactsRepository.findById(contactId)
                 .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(contactId));
 
-        // Obtener la entidad del projectType desde la base de datos
         ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
                 .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
 
-        // Asignar las entidades al lead
         leadEntity.setContact(contactEntity);
         leadEntity.setProjectType(projectTypeEntity);
 
@@ -170,15 +150,10 @@ public class LeadsService
             LeadsEntity savedLeadEntity = repository.save(leadEntity);
             return leadMapper.toDto(savedLeadEntity);
         } catch (DataIntegrityViolationException e) {
-            throw new LeadExceptions.LeadCreationException("Error de integridad de datos al crear el lead", e);
+            throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", e);
         }
     }
 
-    /**
-     * Elimina un lead por su ID
-     * @param leadId ID del lead a eliminar
-     * @return true si se eliminó correctamente, false si no se encontró
-     */
     @Transactional
     public boolean deleteLead(Long leadId) {
         if (!repository.existsById(leadId)) {
@@ -189,7 +164,7 @@ public class LeadsService
             repository.deleteById(leadId);
             return true;
         } catch (DataIntegrityViolationException e) {
-            throw new DatabaseException("No se puede eliminar el lead debido a referencias existentes", e);
+            throw new DatabaseException("Cannot delete lead due to existing references", e);
         }
     }
 }

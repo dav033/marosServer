@@ -68,7 +68,6 @@ public class WebhookService {
             return false;
         }
         
-        // Buscar y eliminar la tarea por lead_number usando custom fields
         boolean deleted = clickUpService.deleteTaskByLeadNumber(dto.getLeadNumber());
         
         if (deleted) {

@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción base para todas las excepciones personalizadas del sistema
- */
 public abstract class BaseException extends RuntimeException {
     
     private final String errorCode;

@@ -47,23 +47,23 @@ public abstract class LeadToClickUpTaskMapper {
         String contacto = contactInfoFormatter.formatFor(dto.getContactId());
 
         return String.join("\n",
-                "**Nuevo Lead Creado**",
+                "**New Lead Created**",
                 "",
-                "**Detalles:**",
-                String.format("- **Número de Lead:** %s", dto.getLeadNumber()),
-                String.format("- **Nombre:** %s", dto.getName()),
+                "**Details:**",
+                String.format("- **Lead Number:** %s", dto.getLeadNumber()),
+                String.format("- **Name:** %s", dto.getName()),
                 dto.getLocation() != null && !dto.getLocation().isBlank()
-                        ? String.format("- **Ubicación:** %s", dto.getLocation())
+                        ? String.format("- **Location:** %s", dto.getLocation())
                         : "",
                 dto.getStartDate() != null
-                        ? String.format("- **Fecha de Inicio:** %s", fecha)
+                        ? String.format("- **Start Date:** %s", fecha)
                         : "",
                 dto.getLeadType() != null
-                        ? String.format("- **Tipo:** %s", dto.getLeadType())
+                        ? String.format("- **Type:** %s", dto.getLeadType())
                         : "",
                 contacto,
                 "",
-                "*Tarea creada automáticamente desde Supabase*");
+                "*Task created automatically from Supabase*");
     }
 
     protected List<String> buildTags(String leadType) {
@@ -73,9 +73,6 @@ public abstract class LeadToClickUpTaskMapper {
                 "automated");
     }
 
-    /**
-     * Convierte una fecha en formato string (YYYY-MM-DD) a timestamp en milisegundos para ClickUp
-     */
     protected Long convertDateStringToTimestamp(String dateString) {
         if (dateString == null || dateString.trim().isEmpty()) {
             return null;
@@ -83,10 +80,8 @@ public abstract class LeadToClickUpTaskMapper {
         
         try {
             LocalDate date = LocalDate.parse(dateString);
-            // Convertir a timestamp en milisegundos (inicio del día en UTC)
             return date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli();
         } catch (Exception e) {
-            // Si no se puede parsear la fecha, retornar null
             return null;
         }
     }

@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción para recursos no encontrados
- */
 public class ResourceNotFoundException extends BaseException {
 
     public ResourceNotFoundException(String message) {

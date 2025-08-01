@@ -2,9 +2,6 @@ package io.dav033.maroconstruction.exceptions;
 
 import org.springframework.http.HttpStatus;
 
-/**
- * Excepción para errores de validación de negocio
- */
 public class BusinessException extends BaseException {
 
     public BusinessException(String message) {
