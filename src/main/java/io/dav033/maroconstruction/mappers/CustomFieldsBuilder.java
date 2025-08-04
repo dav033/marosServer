@@ -26,19 +26,15 @@ public class CustomFieldsBuilder {
         log.info("Building custom fields for lead: leadNumber={}, contactId={}", 
                 dto.getLeadNumber(), dto.getContactId());
 
-        // 🧪 PRUEBA TEMPORAL: Forzar contacto ID 5 para probar el cambio
-        log.info("🧪 FORZANDO contacto ID 5 para prueba de cambio");
-        Long forcedContactId = 5L;
-        
-        // Intentamos obtener datos del contacto FORZADO ID 5
+        // Intentamos obtener datos del contacto
         Contacts contact = null;
         try {
-            contact = contactsService.getContactById(forcedContactId);
-            log.info("✅ Found FORCED contact ID 5: id={}, name='{}', email='{}', phone='{}', company='{}'", 
+            contact = contactsService.getContactById(dto.getContactId());
+            log.info("✅ Found contact: id={}, name='{}', email='{}', phone='{}', company='{}'", 
                     contact.getId(), contact.getName(), contact.getEmail(), 
                     contact.getPhone(), contact.getCompanyName());
         } catch (Exception e) { 
-            log.error("❌ ERROR: Could not find FORCED contact with id={}: {}", forcedContactId, e.getMessage());
+            log.error("❌ ERROR: Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
         }
 
         // Verificar si tenemos contacto
