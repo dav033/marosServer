@@ -23,7 +23,7 @@ public class LeadDeleteController {
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
     
-    @PostMapping(" ")
+    @PostMapping("/delete")
     public ResponseEntity<Map<String, Object>> receiveLeadDelete(
             @RequestBody SupabaseWebhookPayload payload,
             HttpServletRequest request) {
