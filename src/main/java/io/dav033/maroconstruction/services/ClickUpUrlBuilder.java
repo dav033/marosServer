@@ -31,6 +31,12 @@ public class ClickUpUrlBuilder {
             taskId);
     }
 
+    public String buildUpdateCustomFieldsUrl(String taskId) {
+        return String.format("%s/task/%s/field",
+            config.getApiUrl(),
+            taskId);
+    }
+
     public String buildGetTasksUrl() {
         return String.format("%s/list/%s/task",
             config.getApiUrl(),

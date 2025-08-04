@@ -1,5 +1,6 @@
 package io.dav033.maroconstruction.services;
 
+import io.dav033.maroconstruction.config.ClickUpConfig;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskListResponse;
@@ -22,6 +23,7 @@ public class ClickUpService {
     private final ClickUpUrlBuilder urlBuilder;
     private final ClickUpHeadersProvider headersProvider;
     private final RestTemplate restTemplate;
+    private final ClickUpConfig config;
 
     public ClickUpTaskResponse createTask(ClickUpTaskRequest taskRequest) {
         if (!isConfigured()) {
@@ -109,11 +111,24 @@ public class ClickUpService {
         }
         
         try {
+            // Paso 1: Actualizar los campos básicos de la tarea (sin custom fields)
+            ClickUpTaskRequest basicRequest = ClickUpTaskRequest.builder()
+                .name(taskRequest.getName())
+                .description(taskRequest.getDescription())
+                .tags(taskRequest.getTags())
+                .priority(taskRequest.getPriority())
+                .status(taskRequest.getStatus())
+                .startDate(taskRequest.getStartDate())
+                .dueDate(taskRequest.getDueDate())
+                .timeEstimate(taskRequest.getTimeEstimate())
+                .assignees(taskRequest.getAssignees())
+                // No incluir custom fields en esta request
+                .build();
+            
             String url = urlBuilder.buildUpdateTaskUrl(taskId);
-            HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(taskRequest, headersProvider.get());
+            HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(basicRequest, headersProvider.get());
 
-            log.info("Actualizando tarea en ClickUp: taskId={}, name={}", taskId, taskRequest.getName());
-            logCustomFields(taskRequest.getCustomFields());
+            log.info("Actualizando tarea básica en ClickUp: taskId={}, name={}", taskId, taskRequest.getName());
 
             // ClickUp utiliza PUT para actualizar tareas
             ResponseEntity<ClickUpTaskResponse> response = restTemplate.exchange(
@@ -128,8 +143,15 @@ public class ClickUpService {
                 throw new ClickUpException("ClickUp update response was null");
             }
 
-            log.info("Tarea actualizada con éxito en ClickUp → id={}, url={}", 
-                    responseBody.getId(), responseBody.getUrl());
+            log.info("Tarea básica actualizada con éxito en ClickUp → id={}", responseBody.getId());
+            
+            // Paso 2: Actualizar los custom fields por separado si existen
+            if (taskRequest.getCustomFields() != null && !taskRequest.getCustomFields().isEmpty()) {
+                updateCustomFields(taskId, taskRequest.getCustomFields());
+            } else {
+                log.info("No custom fields to update for task {}", taskId);
+            }
+            
             return responseBody;
             
         } catch (RestClientException e) {
@@ -138,6 +160,60 @@ public class ClickUpService {
         } catch (Exception e) {
             log.error("Error inesperado al actualizar tarea en ClickUp: {}", e.getMessage(), e);
             throw new ClickUpException("Unexpected error updating task in ClickUp: " + e.getMessage(), e);
+        }
+    }
+    
+    private void updateCustomFields(String taskId, List<ClickUpTaskRequest.CustomField> customFields) {
+        try {
+            log.info("Actualizando {} custom fields para tarea {}", customFields.size(), taskId);
+            logCustomFields(customFields);
+            
+            // Actualizar cada custom field individualmente
+            for (ClickUpTaskRequest.CustomField field : customFields) {
+                updateSingleCustomField(taskId, field);
+            }
+            
+            log.info("Todos los custom fields actualizados exitosamente para tarea {}", taskId);
+            
+        } catch (Exception e) {
+            log.error("Error actualizando custom fields para tarea {}: {}", taskId, e.getMessage(), e);
+            // No lanzar excepción para no fallar toda la actualización por un custom field
+        }
+    }
+    
+    private void updateSingleCustomField(String taskId, ClickUpTaskRequest.CustomField field) {
+        try {
+            String url = String.format("%s/task/%s/field/%s", 
+                config.getApiUrl(), taskId, field.getId());
+            
+            // El body para actualizar un custom field específico
+            var fieldUpdateRequest = new Object() {
+                @SuppressWarnings("unused")
+                public final Object value = field.getValue();
+            };
+            
+            HttpEntity<Object> entity = new HttpEntity<>(fieldUpdateRequest, headersProvider.get());
+            
+            log.debug("Actualizando custom field: taskId={}, fieldId={}, value='{}'", 
+                    taskId, field.getId(), field.getValue());
+            
+            ResponseEntity<String> response = restTemplate.exchange(
+                url, 
+                HttpMethod.POST, // ClickUp usa POST para actualizar custom fields
+                entity, 
+                String.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                log.debug("Custom field {} actualizado exitosamente", field.getId());
+            } else {
+                log.warn("Respuesta no exitosa al actualizar custom field {}: {}", 
+                        field.getId(), response.getStatusCode());
+            }
+            
+        } catch (Exception e) {
+            log.error("Error actualizando custom field {} para tarea {}: {}", 
+                    field.getId(), taskId, e.getMessage());
         }
     }
 
@@ -201,9 +277,11 @@ public class ClickUpService {
 
     private void logCustomFields(List<ClickUpTaskRequest.CustomField> fields) {
         int count = (fields == null ? 0 : fields.size());
-        log.debug("Custom fields count: {}", count);
+        log.info("Custom fields being sent to ClickUp: {} fields", count);
         if (count > 0) {
-            fields.forEach(f -> log.debug(" • Field id={}, value={}", f.getId(), f.getValue()));
+            fields.forEach(f -> log.info(" • Field id={}, value='{}'", f.getId(), f.getValue()));
+        } else {
+            log.warn("No custom fields found in request - contact info may not be updated in ClickUp");
         }
     }
 }

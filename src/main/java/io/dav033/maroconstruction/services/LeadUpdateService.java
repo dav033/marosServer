@@ -50,6 +50,10 @@ public class LeadUpdateService {
                 // Crear el request de actualización usando el mapper
                 ClickUpTaskRequest updateRequest = taskMapper.toClickUpTask(dto);
                 
+                log.info("Update request created: name='{}', customFields={} fields", 
+                        updateRequest.getName(), 
+                        updateRequest.getCustomFields() != null ? updateRequest.getCustomFields().size() : 0);
+                
                 // Actualizar la tarea en ClickUp
                 ClickUpTaskResponse response = clickUpService.updateTask(taskId, updateRequest);
                 
