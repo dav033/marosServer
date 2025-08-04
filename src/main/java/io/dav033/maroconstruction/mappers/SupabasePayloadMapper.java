@@ -24,46 +24,36 @@ public class SupabasePayloadMapper {
             
         if (sourceRecord == null) {
             log.warn("⚠️ Source record is null in payload");
-            return new LeadPayloadDto();
+            return LeadPayloadDto.builder().build();
         }
         
         log.info("📄 Raw record keys: {}", sourceRecord.keySet());
         log.info("📄 Raw record values: {}", sourceRecord);
         
-        LeadPayloadDto dto = new LeadPayloadDto();
-        
         // Extraer y asignar cada campo con logging detallado
         Integer id = toInteger(sourceRecord.get("id"));
-        dto.setId(id);
         log.info("✅ Extracted id: {}", id);
         
         String leadNumber = toStringObject(sourceRecord.get("lead_number"));
-        dto.setLeadNumber(leadNumber);
         log.info("✅ Extracted lead_number: '{}'", leadNumber);
         
         String name = toStringObject(sourceRecord.get("name"));
-        dto.setName(name);
         log.info("✅ Extracted name: '{}'", name);
         
         String leadType = toStringObject(sourceRecord.get("lead_type"));
-        dto.setLeadType(leadType);
         log.info("✅ Extracted lead_type: '{}'", leadType);
         
         String location = toStringObject(sourceRecord.get("location"));
-        dto.setLocation(location);
         log.info("✅ Extracted location: '{}'", location);
         
         String startDate = toStringObject(sourceRecord.get("start_date"));
-        dto.setStartDate(startDate);
         log.info("✅ Extracted start_date: '{}'", startDate);
         
         String status = toStringObject(sourceRecord.get("status"));
-        dto.setStatus(status);
         log.info("✅ Extracted status: '{}'", status);
         
         // CRÍTICO: contact_id
         Long contactId = toLong(sourceRecord.get("contact_id"));
-        dto.setContactId(contactId);
         log.info("🎯 CRITICAL - Extracted contact_id: {} (type: {})", 
                 contactId, contactId != null ? contactId.getClass().getSimpleName() : "null");
         
@@ -74,6 +64,17 @@ public class SupabasePayloadMapper {
                     sourceRecord.get("contact_id"), 
                     sourceRecord.get("contact_id") != null ? sourceRecord.get("contact_id").getClass().getSimpleName() : "null");
         }
+
+        LeadPayloadDto dto = LeadPayloadDto.builder()
+                .id(id)
+                .leadNumber(leadNumber)
+                .name(name)
+                .leadType(leadType)
+                .location(location)
+                .startDate(startDate)
+                .status(status)
+                .contactId(contactId)
+                .build();
         
         log.info("✅ Final DTO: id={}, leadNumber='{}', name='{}', contactId={}", 
                 dto.getId(), dto.getLeadNumber(), dto.getName(), dto.getContactId());

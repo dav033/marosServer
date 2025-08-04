@@ -30,13 +30,13 @@ public class LeadsController {
 
     @PostMapping("/new-contact")
     public ResponseEntity<Leads> createLeadByNewContact(@RequestBody CreateLeadByNewContactRequest request) {
-        Leads lead = leadsService.CreateLeadByNewContact(request.getLead(), request.getContact());
+        Leads lead = leadsService.createLeadWithNewContact(request.getLead(), request.getContact());
         return ResponseEntity.ok(lead);
     }
 
     @PostMapping("/existing-contact")
     public ResponseEntity<Leads> createLeadByExistingContact(@RequestBody CreateLeadByExistingContactRequest request) {
-        Leads lead = leadsService.CreateLeadByExistingContact(request.getLead(), request.getContactId());
+        Leads lead = leadsService.createLeadWithExistingContact(request.getLead(), request.getContactId());
         return ResponseEntity.ok(lead);
     }
 

@@ -53,6 +53,28 @@ public class WebhookService {
     }
 
     /*------------------------------------------------------------
+     *  Métodos públicos específicos para cada operación
+     *-----------------------------------------------------------*/
+    
+    @Transactional
+    public ClickUpTaskResponse processLeadInsert(SupabaseWebhookPayload payload) {
+        log.info("Procesando INSERT de lead: tabla={}", payload.getTable());
+        return handleInsert(payload);
+    }
+    
+    @Transactional
+    public ClickUpTaskResponse processLeadUpdate(SupabaseWebhookPayload payload) {
+        log.info("Procesando UPDATE de lead: tabla={}", payload.getTable());
+        return handleUpdate(payload);
+    }
+    
+    @Transactional
+    public Boolean processLeadDelete(SupabaseWebhookPayload payload) {
+        log.info("Procesando DELETE de lead: tabla={}", payload.getTable());
+        return handleDelete(payload);
+    }
+
+    /*------------------------------------------------------------
      *  INSERT
      *-----------------------------------------------------------*/
     private ClickUpTaskResponse handleInsert(SupabaseWebhookPayload payload) {
