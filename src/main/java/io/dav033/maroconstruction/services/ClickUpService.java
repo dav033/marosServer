@@ -183,6 +183,13 @@ public class ClickUpService {
     
     private void updateSingleCustomField(String taskId, ClickUpTaskRequest.CustomField field) {
         try {
+            String fieldDescription = getFieldDescription(field.getId());
+            log.info("🔧 ===== ACTUALIZANDO CUSTOM FIELD =====");
+            log.info("🔧 Campo: {}", fieldDescription);
+            log.info("🔧 Field ID: '{}'", field.getId());
+            log.info("🔧 Nuevo valor: '{}'", field.getValue());
+            log.info("🔧 Task ID: '{}'", taskId);
+            
             String url = String.format("%s/task/%s/field/%s", 
                 config.getApiUrl(), taskId, field.getId());
             
@@ -194,9 +201,9 @@ public class ClickUpService {
             
             HttpEntity<Object> entity = new HttpEntity<>(fieldUpdateRequest, headersProvider.get());
             
-            log.info("🔧 Actualizando custom field: URL={}, taskId={}, fieldId={}, value='{}'", 
-                    url, taskId, field.getId(), field.getValue());
+            log.info("🔧 URL de actualización: {}", url);
             log.info("🔧 Request body: {}", fieldUpdateRequest);
+            log.info("🔧 Enviando petición a ClickUp...");
             
             ResponseEntity<String> response = restTemplate.exchange(
                 url, 
@@ -206,16 +213,23 @@ public class ClickUpService {
             );
             
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.info("✅ Custom field {} actualizado exitosamente. Response: {}", 
-                        field.getId(), response.getBody());
+                log.info("✅ {} ACTUALIZADO EXITOSAMENTE", fieldDescription);
+                log.info("✅ Status: {}", response.getStatusCode());
+                log.info("✅ Response: {}", response.getBody());
             } else {
-                log.error("❌ Respuesta no exitosa al actualizar custom field {}: Status={}, Body={}", 
-                        field.getId(), response.getStatusCode(), response.getBody());
+                log.error("❌ ERROR AL ACTUALIZAR {}", fieldDescription);
+                log.error("❌ Status: {}", response.getStatusCode());
+                log.error("❌ Response Body: {}", response.getBody());
             }
+            log.info("===== FIN ACTUALIZACIÓN CUSTOM FIELD =====");
             
         } catch (Exception e) {
-            log.error("Error actualizando custom field {} para tarea {}: {}", 
-                    field.getId(), taskId, e.getMessage());
+            String fieldDescription = getFieldDescription(field.getId());
+            log.error("💥 EXCEPCIÓN AL ACTUALIZAR {}", fieldDescription);
+            log.error("💥 Field ID: '{}'", field.getId());
+            log.error("💥 Task ID: '{}'", taskId);
+            log.error("💥 Error: {}", e.getMessage());
+            log.error("💥 Stack trace:", e);
         }
     }
 
@@ -296,9 +310,31 @@ public class ClickUpService {
         
         try {
             log.info("🔄 STARTING COMPLETE TASK UPDATE: taskId={}", taskId);
-            log.info("📝 New task name: {}", newTaskData.getName());
-            log.info("📄 New description length: {} chars", 
-                newTaskData.getDescription() != null ? newTaskData.getDescription().length() : 0);
+            
+            // 📋 LOG COMPLETO DE LA REQUEST RECIBIDA
+            log.info("� ===== REQUEST COMPLETA RECIBIDA =====");
+            log.info("📝 Task Name: '{}'", newTaskData.getName());
+            log.info("📄 Description: '{}'", newTaskData.getDescription());
+            log.info("🏷️ Tags: {}", newTaskData.getTags());
+            log.info("⚡ Priority: {}", newTaskData.getPriority());
+            log.info("📅 Start Date: {}", newTaskData.getStartDate());
+            log.info("📅 Due Date: {}", newTaskData.getDueDate());
+            log.info("👥 Assignees: {}", newTaskData.getAssignees());
+            log.info("🔢 Custom Fields Count: {}", 
+                newTaskData.getCustomFields() != null ? newTaskData.getCustomFields().size() : 0);
+            
+            // 🏷️ LOG DETALLADO DE CUSTOM FIELDS
+            if (newTaskData.getCustomFields() != null && !newTaskData.getCustomFields().isEmpty()) {
+                log.info("🏷️ ===== CUSTOM FIELDS EN LA REQUEST =====");
+                for (ClickUpTaskRequest.CustomField field : newTaskData.getCustomFields()) {
+                    String fieldName = getFieldDescription(field.getId());
+                    log.info("   {} → ID: '{}' → Value: '{}'", fieldName, field.getId(), field.getValue());
+                }
+                log.info("===== FIN CUSTOM FIELDS =====");
+            } else {
+                log.error("❌ NO HAY CUSTOM FIELDS EN LA REQUEST - ESTO ES UN PROBLEMA");
+            }
+            log.info("===== FIN REQUEST COMPLETA =====");
             
             // Paso 1: Actualizar información básica del task (nombre y descripción)
             ClickUpTaskRequest basicUpdate = ClickUpTaskRequest.builder()
@@ -327,11 +363,25 @@ public class ClickUpService {
             
             // Paso 2: Actualizar custom fields con nueva información de contacto
             if (newTaskData.getCustomFields() != null && !newTaskData.getCustomFields().isEmpty()) {
-                log.info("🔄 Updating {} custom fields with new contact data", newTaskData.getCustomFields().size());
+                log.info("🔄 ===== INICIANDO ACTUALIZACIÓN DE CUSTOM FIELDS =====");
+                log.info("🔢 Número de custom fields a actualizar: {}", newTaskData.getCustomFields().size());
+                
+                // Log de qué contacto se está usando (extraer del custom field de contact name si existe)
+                newTaskData.getCustomFields().stream()
+                    .filter(field -> "524a8b7c-cfb7-4361-886e-59a019f8c5b5".equals(field.getId()))
+                    .findFirst()
+                    .ifPresent(contactField -> 
+                        log.info("🎯 ACTUALIZANDO CON INFORMACIÓN DEL CONTACTO: '{}'", contactField.getValue()));
+                
                 updateCustomFields(taskId, newTaskData.getCustomFields());
-                log.info("✅ Custom fields updated successfully");
+                log.info("✅ ===== CUSTOM FIELDS ACTUALIZADOS EXITOSAMENTE =====");
             } else {
-                log.warn("⚠️ No custom fields provided for update");
+                log.error("❌❌❌ CRÍTICO: No custom fields provided for update");
+                log.error("❌ Esto significa que la información del contacto NO se actualizará en ClickUp");
+                log.error("❌ Posibles causas:");
+                log.error("   - CustomFieldsBuilder no encontró el contacto");
+                log.error("   - Error en el mapeo de LeadToClickUpTaskMapper");
+                log.error("   - ContactsService no pudo obtener el contacto por ID");
             }
 
             log.info("🎉 COMPLETE TASK UPDATE FINISHED: taskId={}", taskId);
@@ -353,6 +403,22 @@ public class ClickUpService {
             fields.forEach(f -> log.info(" • Field id={}, value='{}'", f.getId(), f.getValue()));
         } else {
             log.warn("No custom fields found in request - contact info may not be updated in ClickUp");
+        }
+    }
+
+    /**
+     * Devuelve una descripción legible del custom field basado en su ID
+     */
+    private String getFieldDescription(String fieldId) {
+        switch (fieldId) {
+            case "524a8b7c-cfb7-4361-886e-59a019f8c5b5": return "👤 Contact Name";
+            case "c8dbf709-6ef9-479f-a915-b20518ac30e6": return "🏢 Company Name";
+            case "f2220992-2039-4a6f-9717-b53ede8f5ec1": return "📧 Contact Email";
+            case "9edb199d-5c9f-404f-84f1-ad6a78597175": return "📞 Contact Phone (Primary)";
+            case "f94558c8-3c7a-48cb-999c-c697b7842ddf": return "📞 Contact Phone (Secondary)";
+            case "401a9851-6f11-4043-b577-4c7b3f03fb03": return "📍 Location";
+            case "53d6e312-0f63-40ba-8f87-1f3092d8b322": return "🔢 Lead Number";
+            default: return "❓ Unknown Field";
         }
     }
 }
