@@ -2,7 +2,7 @@ package io.dav033.maroconstruction.controllers;
 
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
-import io.dav033.maroconstruction.services.LeadUpdateService;
+import io.dav033.maroconstruction.services.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LeadUpdateController {
     
-    private final LeadUpdateService leadUpdateService;
+    private final WebhookService webhookService;
     
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
@@ -49,7 +49,7 @@ public class LeadUpdateController {
                 return ResponseEntity.ok(response);
             }
             
-            ClickUpTaskResponse taskResponse = leadUpdateService.processLeadUpdate(payload);
+            ClickUpTaskResponse taskResponse = webhookService.processLeadUpdate(payload);
             
             if (taskResponse != null) {
                 log.info("Lead UPDATE procesado exitosamente y tarea actualizada en ClickUp");

@@ -1,10 +1,12 @@
 package io.dav033.maroconstruction.services;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
+import java.util.stream.Stream;
 
 import io.dav033.maroconstruction.config.ClickUpConfig;
 
-@Component
+@Service
 public class ClickUpUrlBuilder {
 
     private final ClickUpConfig config;
@@ -14,38 +16,45 @@ public class ClickUpUrlBuilder {
     }
 
     public String buildCreateTaskUrl() {
-        return String.format("%s/list/%s/task",
-            config.getApiUrl(),
-            config.getListId());
-    }
-
-    public String buildDeleteTaskUrl(String taskId) {
-        return String.format("%s/task/%s",
-            config.getApiUrl(),
-            taskId);
-    }
-
-    public String buildUpdateTaskUrl(String taskId) {
-        return String.format("%s/task/%s",
-            config.getApiUrl(),
-            taskId);
-    }
-
-    public String buildUpdateCustomFieldsUrl(String taskId) {
-        return String.format("%s/task/%s/field",
-            config.getApiUrl(),
-            taskId);
+        return buildUrl("list", config.getListId(), "task");
     }
 
     public String buildGetTasksUrl() {
-        return String.format("%s/list/%s/task",
-            config.getApiUrl(),
-            config.getListId());
+        return buildCreateTaskUrl();
+    }
+
+    public String buildDeleteTaskUrl(String taskId) {
+        return buildUrl("task", taskId);
+    }
+
+    public String buildUpdateTaskUrl(String taskId) {
+        return buildDeleteTaskUrl(taskId);
+    }
+
+    public String buildUpdateCustomFieldsUrl(String taskId) {
+        return buildUrl("task", taskId, "field");
     }
 
     public boolean isConfigured() {
-        return config.getApiUrl()   != null && !config.getApiUrl().isBlank()
-            && config.getListId()   != null && !config.getListId().isBlank()
-            && config.getAccessToken() != null && !config.getAccessToken().isBlank();
+        return Stream.of(
+                config.getApiUrl(),
+                config.getListId(),
+                config.getAccessToken()
+            )
+            .allMatch(s -> s != null && !s.isBlank());
+    }
+
+    /**
+     * Construye la URL base a partir de config.getApiUrl()
+     * y añade tantos segmentos de ruta como se especifiquen.
+     * Se usa fromUriString(...) en lugar del obsoleto fromHttpUrl(...).
+     */
+    private String buildUrl(String... segments) {
+        UriComponentsBuilder builder = UriComponentsBuilder
+            .fromUriString(config.getApiUrl().trim());  // método moderno, no obsoleto
+        for (String segment : segments) {
+            builder.pathSegment(segment.trim());
+        }
+        return builder.toUriString();
     }
 }

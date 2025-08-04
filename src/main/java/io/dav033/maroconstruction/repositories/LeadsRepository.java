@@ -8,12 +8,40 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface LeadsRepository extends JpaRepository<LeadsEntity, Long> {
 
-    @EntityGraph(attributePaths = {"projectType", "contact"})
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * Consultas existentes
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    @EntityGraph(attributePaths = { "projectType", "contact" })
     List<LeadsEntity> findByLeadType(LeadType type);
 
-    @Query("SELECT l.leadNumber FROM LeadsEntity l WHERE l.leadType = :leadType AND l.leadNumber IS NOT NULL AND l.leadNumber != ''")
+    @Query("""
+            SELECT l.leadNumber
+            FROM LeadsEntity l
+            WHERE l.leadType = :leadType
+              AND l.leadNumber IS NOT NULL
+              AND l.leadNumber <> ''
+            """)
     List<String> findAllLeadNumbersByType(@Param("leadType") LeadType leadType);
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * Nuevo método para generar la secuencia mensual del lead_number
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    @Query("""
+            SELECT MAX(
+                CAST(SUBSTRING(l.leadNumber, 1, 3) AS integer)
+            )
+            FROM LeadsEntity l
+            WHERE l.leadType = :leadType
+              AND FUNCTION('right', l.leadNumber, 4) = :monthYear
+            """)
+    Optional<Integer> findMaxSequenceForMonth(@Param("leadType") LeadType leadType,
+            @Param("monthYear") String monthYear);
 }

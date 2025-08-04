@@ -1,9 +1,8 @@
 package io.dav033.maroconstruction.controllers;
 
+import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
-import io.dav033.maroconstruction.services.LeadInsertService;
-import io.dav033.maroconstruction.services.LeadDeleteService;
-import io.dav033.maroconstruction.services.LeadUpdateService;
+import io.dav033.maroconstruction.services.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,9 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WebhookController {
     
-    private final LeadInsertService leadInsertService;
-    private final LeadDeleteService leadDeleteService;
-    private final LeadUpdateService leadUpdateService;
+    private final WebhookService webhookService;
     
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
@@ -45,14 +42,15 @@ public class WebhookController {
                 return ResponseEntity.ok(response);
             }
 
+            Object result = webhookService.processSupabaseWebhook(payload);
+            
             switch (payload.getType()) {
                 case "INSERT":
-                    var insertResult = leadInsertService.processLeadInsert(payload);
-                    if (insertResult != null) {
+                    if (result instanceof ClickUpTaskResponse) {
                         log.info("Webhook procesado exitosamente: tarea creada en ClickUp");
                         response.put("status", "success");
                         response.put("message", "Task created in ClickUp");
-                        response.put("clickup_task", insertResult);
+                        response.put("clickup_task", result);
                     } else {
                         log.info("Webhook procesado pero no se realizó operación en ClickUp");
                         response.put("status", "processed");
@@ -61,8 +59,8 @@ public class WebhookController {
                     break;
                     
                 case "DELETE":
-                    var deleteResult = leadDeleteService.processLeadDelete(payload);
-                    if (deleteResult) {
+                    Boolean deleteResult = (Boolean) result;
+                    if (Boolean.TRUE.equals(deleteResult)) {
                         log.info("Webhook procesado exitosamente: tarea eliminada de ClickUp");
                         response.put("status", "success");
                         response.put("message", "Task deleted from ClickUp");
@@ -76,13 +74,12 @@ public class WebhookController {
                     break;
                     
                 case "UPDATE":
-                    var updateResult = leadUpdateService.processLeadUpdate(payload);
-                    if (updateResult != null) {
+                    if (result instanceof ClickUpTaskResponse) {
                         log.info("Webhook procesado exitosamente: tarea actualizada en ClickUp");
                         response.put("status", "success");
                         response.put("message", "Task updated in ClickUp");
                         response.put("updated", true);
-                        response.put("clickup_task", updateResult);
+                        response.put("clickup_task", result);
                     } else {
                         log.info("Webhook procesado pero no se realizó operación en ClickUp");
                         response.put("status", "processed");

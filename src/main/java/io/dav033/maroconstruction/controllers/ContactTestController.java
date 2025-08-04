@@ -1,6 +1,6 @@
 package io.dav033.maroconstruction.controllers;
 
-import io.dav033.maroconstruction.services.LeadUpdateService;
+import io.dav033.maroconstruction.services.WebhookService;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ContactTestController {
 
-    private final LeadUpdateService leadUpdateService;
+    private final WebhookService webhookService;
 
     @PostMapping("/change-contact/{leadNumber}/{newContactId}")
     public ResponseEntity<?> testContactChange(
@@ -46,7 +46,7 @@ public class ContactTestController {
             log.info("🔄 Simulating webhook payload with new contact_id: {}", newContactId);
             
             // Procesar el update
-            var result = leadUpdateService.processLeadUpdate(payload);
+            var result = webhookService.processLeadUpdate(payload);
             
             if (result != null) {
                 log.info("✅ Test completed successfully! Task updated with new contact information");
@@ -90,7 +90,7 @@ public class ContactTestController {
             
             log.info("🔄 Processing simulated webhook with contact_id=1");
             
-            var result = leadUpdateService.processLeadUpdate(payload);
+            var result = webhookService.processLeadUpdate(payload);
             
             if (result != null) {
                 return ResponseEntity.ok()

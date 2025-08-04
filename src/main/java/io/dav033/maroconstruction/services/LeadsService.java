@@ -10,6 +10,8 @@ import io.dav033.maroconstruction.exceptions.ContactExceptions;
 import io.dav033.maroconstruction.exceptions.DatabaseException;
 import io.dav033.maroconstruction.exceptions.LeadExceptions;
 import io.dav033.maroconstruction.exceptions.ProjectTypeExceptions;
+import io.dav033.maroconstruction.mappers.ContactsMapper;
+import io.dav033.maroconstruction.mappers.GenericMapper;
 import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
@@ -21,6 +23,9 @@ import io.dav033.maroconstruction.repositories.ProjectTypeRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,252 +35,188 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
 @Slf4j
-public class LeadsService
-        extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
+@Service
+public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    private final ContactsService contactsService;
-    private final ContactsRepository contactsRepository;
-    private final ProjectTypeRepository projectTypeRepository;
-    private final LeadsMapper leadMapper;
-    private final ClickUpService clickUpService;
-    private final LeadToClickUpTaskMapper leadToClickUpTaskMapper;
-
-    public LeadsService(LeadsRepository repository, ContactsService contactsService,
-                        ContactsRepository contactsRepository,
-                        ProjectTypeRepository projectTypeRepository,
-                        @Qualifier("leadsMapperImpl") LeadsMapper leadMapper,
-                        ClickUpService clickUpService,
-                        LeadToClickUpTaskMapper leadToClickUpTaskMapper) {
-        super(repository, leadMapper);
+    public LeadsService(
+            LeadsRepository repository,
+            GenericMapper<Leads, LeadsEntity> mapper,
+            ContactsService contactsService,
+            ContactsRepository contactsRepository,
+            ProjectTypeRepository projectTypeRepository,
+            LeadsMapper leadMapper,
+            ClickUpService clickUpService,
+            LeadToClickUpTaskMapper taskMapper,
+            EntityManager entityManager
+    ) {
+        super(repository, mapper);
         this.contactsService = contactsService;
         this.contactsRepository = contactsRepository;
         this.projectTypeRepository = projectTypeRepository;
         this.leadMapper = leadMapper;
         this.clickUpService = clickUpService;
-        this.leadToClickUpTaskMapper = leadToClickUpTaskMapper;
+        this.taskMapper = taskMapper;
+        this.entityManager = entityManager;
     }
 
-    public List<Leads> getLeadsByType(LeadType leadType) {
-        List<LeadsEntity> entities = repository.findByLeadType(leadType);
-        return entities.stream()
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * CONSTANTES
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private static final DateTimeFormatter LEAD_NO_FMT = DateTimeFormatter.ofPattern("MMyy");
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * DEPENDENCIAS
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private final ContactsService contactsService;
+    private final ContactsRepository contactsRepository;
+    private final ProjectTypeRepository projectTypeRepository;
+    private final LeadsMapper leadMapper;
+    private final ClickUpService clickUpService;
+    private final LeadToClickUpTaskMapper taskMapper;
+
+    @PersistenceContext
+    private final EntityManager entityManager;
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * CONSULTAS
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    public List<Leads> getLeadsByType(LeadType type) {
+        return repository.findByLeadType(type)
+                .stream()
                 .map(leadMapper::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
 
-    public List<String> getAllLeadNumbers(LeadType leadType) {
-        return repository.findAllLeadNumbersByType(leadType);
+    public List<String> getAllLeadNumbers(LeadType type) {
+        return repository.findAllLeadNumbersByType(type);
     }
 
-    private String generateLeadNumber(LeadType leadType) {
-        LocalDate now = LocalDate.now();
-        String monthYear = now.format(DateTimeFormatter.ofPattern("MMyy"));
-
-        List<String> allLeadNumbers = getAllLeadNumbers(leadType);
-
-        int nextSequence = 1;
-        if (!allLeadNumbers.isEmpty()) {
-
-            List<Integer> sequences = allLeadNumbers.stream()
-                    .map(leadNumber -> {
-                        try {
-                            String[] parts = leadNumber.split("-");
-                            if (parts.length == 2) {
-                                return Integer.parseInt(parts[0]);
-                            }
-                            return 0;
-                        } catch (NumberFormatException e) {
-                            return 0;
-                        }
-                    })
-                    .filter(seq -> seq > 0)
-                    .sorted((a, b) -> b.compareTo(a))
-                    .collect(Collectors.toList());
-
-            if (!sequences.isEmpty()) {
-                nextSequence = sequences.get(0) + 1;
-            }
-        }
-
-        return String.format("%03d-%s", nextSequence, monthYear);
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * CREACIÓN
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    @Transactional
+    public Leads createLeadWithNewContact(Leads lead, Contacts contact) {
+        Contacts saved = contactsService.create(contact);
+        ContactsEntity contactRef = contactsRepository.getReferenceById(saved.getId());
+        return persistLead(lead, contactRef);
     }
 
     @Transactional
-    public Leads CreateLeadByNewContact(Leads lead, Contacts contact) {
-        contact.setId(null);
-        Contacts savedContact = contactsService.create(contact);
-
-        lead.setId(null);
-
-        if (lead.getStatus() == null) {
-            lead.setStatus(LeadStatus.TO_DO);
-        }
-
-        String leadNumber = generateLeadNumber(lead.getLeadType());
-        lead.setLeadNumber(leadNumber);
-
-        LeadsEntity leadEntity = leadMapper.toEntity(lead);
-
-        ContactsEntity contactEntity = contactsRepository.findById(savedContact.getId())
-                .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(savedContact.getId()));
-
-        ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
-                .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
-
-        leadEntity.setContact(contactEntity);
-        leadEntity.setProjectType(projectTypeEntity);
-
-        try {
-            LeadsEntity savedLeadEntity = repository.save(leadEntity);
-            return leadMapper.toDto(savedLeadEntity);
-        } catch (DataIntegrityViolationException e) {
-            throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", e);
-        }
-    }
-
-    @Transactional
-    public Leads CreateLeadByExistingContact(Leads lead, Long contactId) {
-        lead.setId(null);
-
-        if (lead.getStatus() == null) {
-            lead.setStatus(LeadStatus.TO_DO);
-        }
-
-        String leadNumber = generateLeadNumber(lead.getLeadType());
-        lead.setLeadNumber(leadNumber);
-
-        LeadsEntity leadEntity = leadMapper.toEntity(lead);
-
-        ContactsEntity contactEntity = contactsRepository.findById(contactId)
+    public Leads createLeadWithExistingContact(Leads lead, Long contactId) {
+        ContactsEntity contact = contactsRepository.findById(contactId)
                 .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(contactId));
+        return persistLead(lead, contact);
+    }
 
-        ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(lead.getProjectType().getId())
-                .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(lead.getProjectType().getId()));
+    private Leads persistLead(Leads lead, ContactsEntity contact) {
+        applyDefaults(lead);
+        ProjectTypeEntity projectType = resolveProjectType(lead.getProjectType().getId());
 
-        leadEntity.setContact(contactEntity);
-        leadEntity.setProjectType(projectTypeEntity);
+        LeadsEntity entity = leadMapper.toEntity(lead);
+        entity.setContact(contact);
+        entity.setProjectType(projectType);
 
         try {
-            LeadsEntity savedLeadEntity = repository.save(leadEntity);
-            return leadMapper.toDto(savedLeadEntity);
-        } catch (DataIntegrityViolationException e) {
-            throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", e);
+            LeadsEntity saved = repository.save(entity);
+            return leadMapper.toDto(saved);
+        } catch (DataIntegrityViolationException ex) {
+            throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", ex);
         }
     }
 
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * ACTUALIZACIÓN
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
     @Transactional
-    public Leads updateLead(Long leadId, Leads updatedLead) {
-        // Verificar que el lead existe y obtener el leadNumber (necesario preservarlo)
-        LeadsEntity existingEntity = repository.findById(leadId)
-                .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(leadId));
+    public Leads updateLead(Long id, Leads patch) {
+        LeadsEntity entity = repository.findById(id)
+                .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
 
-        String originalLeadNumber = existingEntity.getLeadNumber();
+        leadMapper.updateEntity(patch, entity);
+        entityManager.flush();
 
-        // Crear una nueva entidad limpia con solo los datos que queremos actualizar
-        LeadsEntity entityToUpdate = new LeadsEntity();
-        entityToUpdate.setId(leadId);
-        entityToUpdate.setLeadNumber(originalLeadNumber); // Preservar el número de lead
-
-        // Mapear los campos actualizables del DTO a la entidad
-        leadMapper.updateEntity(updatedLead, entityToUpdate);
-
-        // Asegurar que ID y leadNumber no se sobrescriban
-        entityToUpdate.setId(leadId);
-        entityToUpdate.setLeadNumber(originalLeadNumber);
-
-        // Si se proporciona un contacto, validar que existe y establecer referencia
-        if (updatedLead.getContact() != null && updatedLead.getContact().getId() != null) {
-            if (!contactsRepository.existsById(updatedLead.getContact().getId())) {
-                throw new ContactExceptions.ContactNotFoundException(updatedLead.getContact().getId());
-            }
-            // Solo establecer la referencia por ID, no cargar la entidad completa
-            ContactsEntity contactRef = contactsRepository.getReferenceById(updatedLead.getContact().getId());
-            entityToUpdate.setContact(contactRef);
-        } else {
-            // Si no se proporciona un nuevo contacto, mantener el original
-            entityToUpdate.setContact(existingEntity.getContact());
-        }
-
-        // Si se proporciona un tipo de proyecto, validar que existe y establecer referencia
-        if (updatedLead.getProjectType() != null && updatedLead.getProjectType().getId() != null) {
-            if (!projectTypeRepository.existsById(updatedLead.getProjectType().getId())) {
-                throw new ProjectTypeExceptions.ProjectTypeNotFoundException(updatedLead.getProjectType().getId());
-            }
-            // Solo establecer la referencia por ID, no cargar la entidad completa
-            ProjectTypeEntity projectTypeRef = projectTypeRepository.getReferenceById(updatedLead.getProjectType().getId());
-            entityToUpdate.setProjectType(projectTypeRef);
-        } else {
-            // Si no se proporciona un nuevo tipo de proyecto, mantener el original
-            entityToUpdate.setProjectType(existingEntity.getProjectType());
-        }
-
-        try {
-            // Limpiar el contexto de persistencia para evitar interferencias
-            entityManager.clear();
-            LeadsEntity savedEntity = repository.save(entityToUpdate);
-            Leads finalSavedLead = leadMapper.toDto(savedEntity);
-
-            // --- Inicia la sincronización con ClickUp ---
-            log.info("🔄 Starting ClickUp sync for updated leadId: {}", leadId);
-            try {
-                String taskId = clickUpService.findTaskIdByLeadNumber(finalSavedLead.getLeadNumber());
-                if (taskId != null) {
-                    log.info("Found ClickUp taskId: {}. Preparing update.", taskId);
-
-                    // Mapear a DTO de payload para el mapper de ClickUp
-                    LeadPayloadDto payloadDto = new LeadPayloadDto();
-                    payloadDto.setLeadNumber(finalSavedLead.getLeadNumber());
-                    payloadDto.setName(finalSavedLead.getName());
-                    payloadDto.setLocation(finalSavedLead.getLocation());
-                    if (finalSavedLead.getStartDate() != null) {
-                        payloadDto.setStartDate(finalSavedLead.getStartDate().toString());
-                    }
-                    if (finalSavedLead.getLeadType() != null) {
-                        payloadDto.setLeadType(finalSavedLead.getLeadType().name());
-                    }
-                    if (finalSavedLead.getContact() != null) {
-                        payloadDto.setContactId(finalSavedLead.getContact().getId());
-                    }
-
-                    ClickUpTaskRequest clickUpUpdateRequest = leadToClickUpTaskMapper.toClickUpTask(payloadDto);
-
-                    log.info("Calling updateTaskWithNewContact for taskId: {}", taskId);
-                    clickUpService.updateTaskWithNewContact(taskId, clickUpUpdateRequest);
-                    log.info("✅ Successfully synced lead update to ClickUp for taskId: {}", taskId);
-
-                } else {
-                    log.warn("⚠️ Could not find ClickUp task for leadNumber '{}'. Skipping ClickUp update.", finalSavedLead.getLeadNumber());
-                }
-            } catch (Exception e) {
-                log.error("❌ Failed to sync lead update to ClickUp for leadId: {}. Error: {}", leadId, e.getMessage(), e);
-                // No relanzar la excepción para no revertir la transacción de la BD local
-                // La actualización local es más importante. El error de sync se puede manejar después.
-            }
-            // --- Termina la sincronización con ClickUp ---
-
-            return finalSavedLead;
-        } catch (DataIntegrityViolationException e) {
-            throw new LeadExceptions.LeadUpdateException("Data integrity error updating lead", e);
-        }
+        Leads dto = leadMapper.toDto(entity);
+        syncWithClickUp(dto);
+        return dto;
     }
 
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * ELIMINACIÓN
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
     @Transactional
-    public boolean deleteLead(Long leadId) {
-        if (!repository.existsById(leadId)) {
-            throw new LeadExceptions.LeadNotFoundException(leadId);
+    public boolean deleteLead(Long id) {
+        if (!repository.existsById(id)) {
+            throw new LeadExceptions.LeadNotFoundException(id);
         }
-
         try {
-            repository.deleteById(leadId);
+            repository.deleteById(id);
             return true;
-        } catch (DataIntegrityViolationException e) {
-            throw new DatabaseException("Cannot delete lead due to existing references", e);
+        } catch (DataIntegrityViolationException ex) {
+            throw new DatabaseException("Cannot delete lead due to existing references", ex);
+        }
+    }
+
+    /*
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     * UTILIDADES PRIVADAS
+     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     */
+    private void applyDefaults(Leads lead) {
+        lead.setId(null);
+        lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.TO_DO));
+        lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
+    }
+
+    private String generateLeadNumber(LeadType type) {
+        String monthYear = LocalDate.now().format(LEAD_NO_FMT);
+        int nextSeq = repository.findMaxSequenceForMonth(type, monthYear).orElse(0) + 1;
+        return "%03d-%s".formatted(nextSeq, monthYear);
+    }
+
+    private ProjectTypeEntity resolveProjectType(Long id) {
+        return projectTypeRepository.findById(id)
+                .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(id));
+    }
+
+    private void syncWithClickUp(Leads lead) {
+        if (!clickUpService.isConfigured())
+            return;
+        try {
+            String taskId = clickUpService.findTaskIdByLeadNumber(lead.getLeadNumber());
+            if (taskId == null) {
+                log.warn("No ClickUp task found for leadNumber={}", lead.getLeadNumber());
+                return;
+            }
+            LeadPayloadDto payload = LeadPayloadDto.builder()
+                    .leadNumber(lead.getLeadNumber())
+                    .name(lead.getName())
+                    .location(lead.getLocation())
+                    .startDate(Optional.ofNullable(lead.getStartDate()).map(Object::toString).orElse(null))
+                    .leadType(Optional.ofNullable(lead.getLeadType()).map(Enum::name).orElse(null))
+                    .contactId(Optional.ofNullable(lead.getContact()).map(Contacts::getId).orElse(null))
+                    .build();
+
+            ClickUpTaskRequest req = taskMapper.toClickUpTask(payload);
+            clickUpService.updateTask(taskId, req);
+            log.info("Lead synced to ClickUp → taskId={} leadNumber={}", taskId, lead.getLeadNumber());
+        } catch (Exception ex) {
+            log.error("Failed to sync lead {} with ClickUp: {}", lead.getId(), ex.getMessage(), ex);
         }
     }
 }

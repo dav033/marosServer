@@ -1,7 +1,7 @@
 package io.dav033.maroconstruction.controllers;
 
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
-import io.dav033.maroconstruction.services.LeadDeleteService;
+import io.dav033.maroconstruction.services.WebhookService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,7 +18,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LeadDeleteController {
     
-    private final LeadDeleteService leadDeleteService;
+    private final WebhookService webhookService;
     
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
@@ -48,7 +48,7 @@ public class LeadDeleteController {
                 return ResponseEntity.ok(response);
             }
             
-            Boolean deleted = leadDeleteService.processLeadDelete(payload);
+            Boolean deleted = webhookService.processLeadDelete(payload);
             
             if (deleted) {
                 log.info("Lead procesado exitosamente y tarea eliminada de ClickUp");
