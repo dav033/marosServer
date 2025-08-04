@@ -1,7 +1,8 @@
 package io.dav033.maroconstruction.controllers;
 
+import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
-import io.dav033.maroconstruction.services.LeadDeleteService;
+import io.dav033.maroconstruction.services.LeadUpdateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,19 +17,19 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/webhook/leads")
 @RequiredArgsConstructor
-public class LeadDeleteController {
+public class LeadUpdateController {
     
-    private final LeadDeleteService leadDeleteService;
+    private final LeadUpdateService leadUpdateService;
     
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
     
-    @PostMapping(" ")
-    public ResponseEntity<Map<String, Object>> receiveLeadDelete(
+    @PostMapping("/update")
+    public ResponseEntity<Map<String, Object>> receiveLeadUpdate(
             @RequestBody SupabaseWebhookPayload payload,
             HttpServletRequest request) {
         
-        log.info("Webhook DELETE recibido de Supabase: tabla={}, tipo={}", 
+        log.info("Webhook UPDATE recibido de Supabase: tabla={}, tipo={}", 
                 payload.getTable(), payload.getType());
         
         Map<String, Object> response = new HashMap<>();
@@ -41,31 +42,30 @@ public class LeadDeleteController {
                 return ResponseEntity.ok(response);
             }
             
-            if (!"DELETE".equals(payload.getType())) {
-                log.debug("Ignorado: no es operación DELETE");
+            if (!"UPDATE".equals(payload.getType())) {
+                log.debug("Ignorado: no es operación UPDATE");
                 response.put("status", "ignored");
-                response.put("message", "Not DELETE operation");
+                response.put("message", "Not UPDATE operation");
                 return ResponseEntity.ok(response);
             }
             
-            Boolean deleted = leadDeleteService.processLeadDelete(payload);
+            ClickUpTaskResponse taskResponse = leadUpdateService.processLeadUpdate(payload);
             
-            if (deleted) {
-                log.info("Lead procesado exitosamente y tarea eliminada de ClickUp");
+            if (taskResponse != null) {
+                log.info("Lead UPDATE procesado exitosamente y tarea actualizada en ClickUp");
                 response.put("status", "success");
-                response.put("message", "Task deleted from ClickUp");
-                response.put("deleted", true);
+                response.put("message", "Task updated in ClickUp");
+                response.put("clickup_task", taskResponse);
             } else {
-                log.info("Lead procesado pero no se eliminó tarea de ClickUp");
+                log.info("Lead UPDATE procesado pero no se actualizó en ClickUp");
                 response.put("status", "processed");
-                response.put("message", "Lead processed but ClickUp task not deleted");
-                response.put("deleted", false);
+                response.put("message", "Lead processed but ClickUp task not updated");
             }
             
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            log.error("Error al procesar webhook DELETE de lead", e);
+            log.error("Error al procesar webhook UPDATE de lead", e);
             response.put("status", "error");
             response.put("message", "Internal server error");
             response.put("error", e.getMessage());

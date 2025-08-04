@@ -46,7 +46,7 @@ curl -H "Authorization: YOUR_ACCESS_TOKEN" \
 2. Navega a Database → Webhooks
 3. Crea un nuevo webhook con:
    - **Table**: `leads`
-   - **Events**: `INSERT`, `DELETE`
+   - **Events**: `INSERT`, `UPDATE`, `DELETE`
    - **URL**: `https://tu-dominio.com/api/webhook/supabase`
    - **HTTP Headers**: 
      ```
@@ -102,6 +102,14 @@ Cuando se elimina un lead:
 2. Se elimina la tarea en ClickUp usando la API
 3. Se elimina el registro de mapping de la base de datos
 
+### Actualización de Tareas (UPDATE)
+
+Cuando se actualiza un lead:
+
+1. Se busca la tarea correspondiente en ClickUp usando el `lead_number`
+2. Se actualiza la tarea en ClickUp con los nuevos datos del lead
+3. Se mantiene el mapping existente en `lead_clickup_mapping`
+
 ## 🗄️ Esquema de Base de Datos
 
 ### Tabla: lead_clickup_mapping
@@ -122,7 +130,7 @@ Esta tabla mantiene la relación entre los leads de Supabase y las tareas de Cli
 ## 🔒 Seguridad
 
 - El webhook valida el secret configurado en `SUPABASE_DB_WEBHOOK_SECRET`
-- Solo procesa eventos INSERT y DELETE en la tabla `leads`
+- Solo procesa eventos INSERT, UPDATE y DELETE en la tabla `leads`
 - Manejo de errores con logging detallado
 - Validación de integridad de datos antes de operaciones en ClickUp
 

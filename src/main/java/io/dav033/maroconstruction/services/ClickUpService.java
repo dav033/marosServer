@@ -95,6 +95,52 @@ public class ClickUpService {
         }
     }
 
+    public ClickUpTaskResponse updateTask(String taskId, ClickUpTaskRequest taskRequest) {
+        if (!isConfigured()) {
+            throw new ClickUpException("ClickUp is not configured correctly. Check configuration properties.");
+        }
+        
+        if (taskId == null || taskId.trim().isEmpty()) {
+            throw new ClickUpException("Task ID is required for update");
+        }
+        
+        if (taskRequest == null || taskRequest.getName() == null || taskRequest.getName().trim().isEmpty()) {
+            throw new ClickUpException("Task request is invalid: task name is required");
+        }
+        
+        try {
+            String url = urlBuilder.buildUpdateTaskUrl(taskId);
+            HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(taskRequest, headersProvider.get());
+
+            log.info("Actualizando tarea en ClickUp: taskId={}, name={}", taskId, taskRequest.getName());
+            logCustomFields(taskRequest.getCustomFields());
+
+            // ClickUp utiliza PUT para actualizar tareas
+            ResponseEntity<ClickUpTaskResponse> response = restTemplate.exchange(
+                url, 
+                HttpMethod.PUT, 
+                entity, 
+                ClickUpTaskResponse.class
+            );
+
+            ClickUpTaskResponse responseBody = response.getBody();
+            if (responseBody == null) {
+                throw new ClickUpException("ClickUp update response was null");
+            }
+
+            log.info("Tarea actualizada con éxito en ClickUp → id={}, url={}", 
+                    responseBody.getId(), responseBody.getUrl());
+            return responseBody;
+            
+        } catch (RestClientException e) {
+            log.error("Error al comunicarse con ClickUp API para actualizar tarea: {}", e.getMessage(), e);
+            throw new ClickUpException("Error updating task in ClickUp: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Error inesperado al actualizar tarea en ClickUp: {}", e.getMessage(), e);
+            throw new ClickUpException("Unexpected error updating task in ClickUp: " + e.getMessage(), e);
+        }
+    }
+
     public boolean deleteTaskByLeadNumber(String leadNumber) {
         log.info("Buscando tarea para eliminar por lead_number: {}", leadNumber);
         

@@ -3,6 +3,7 @@ package io.dav033.maroconstruction.controllers;
 import io.dav033.maroconstruction.dto.webhook.SupabaseWebhookPayload;
 import io.dav033.maroconstruction.services.LeadInsertService;
 import io.dav033.maroconstruction.services.LeadDeleteService;
+import io.dav033.maroconstruction.services.LeadUpdateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class WebhookController {
     
     private final LeadInsertService leadInsertService;
     private final LeadDeleteService leadDeleteService;
+    private final LeadUpdateService leadUpdateService;
     
     @Value("${supabase.webhook.secret:#{null}}")
     private String webhookSecret;
@@ -70,6 +72,22 @@ public class WebhookController {
                         response.put("status", "processed");
                         response.put("message", "Processed but ClickUp task not deleted");
                         response.put("deleted", false);
+                    }
+                    break;
+                    
+                case "UPDATE":
+                    var updateResult = leadUpdateService.processLeadUpdate(payload);
+                    if (updateResult != null) {
+                        log.info("Webhook procesado exitosamente: tarea actualizada en ClickUp");
+                        response.put("status", "success");
+                        response.put("message", "Task updated in ClickUp");
+                        response.put("updated", true);
+                        response.put("clickup_task", updateResult);
+                    } else {
+                        log.info("Webhook procesado pero no se realizó operación en ClickUp");
+                        response.put("status", "processed");
+                        response.put("message", "Processed but ClickUp task not updated");
+                        response.put("updated", false);
                     }
                     break;
                     

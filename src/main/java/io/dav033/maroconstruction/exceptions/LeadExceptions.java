@@ -25,4 +25,10 @@ public class LeadExceptions {
             super("Error creating lead: " + message, cause);
         }
     }
+
+    public static class LeadUpdateException extends DatabaseException {
+        public LeadUpdateException(String message, Throwable cause) {
+            super("Error updating lead: " + message, cause);
+        }
+    }
 }

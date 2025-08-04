@@ -5,6 +5,7 @@ import io.dav033.maroconstruction.dto.Leads;
 import io.dav033.maroconstruction.dto.requests.CreateLeadByNewContactRequest;
 import io.dav033.maroconstruction.dto.requests.CreateLeadByExistingContactRequest;
 import io.dav033.maroconstruction.dto.requests.GetLeadsByTypeRequest;
+import io.dav033.maroconstruction.dto.requests.UpdateLeadRequest;
 import io.dav033.maroconstruction.services.LeadsService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,12 @@ public class LeadsController {
     public ResponseEntity<Leads> createLeadByExistingContact(@RequestBody CreateLeadByExistingContactRequest request) {
         Leads lead = leadsService.CreateLeadByExistingContact(request.getLead(), request.getContactId());
         return ResponseEntity.ok(lead);
+    }
+
+    @PutMapping("/{leadId}")
+    public ResponseEntity<Leads> updateLead(@PathVariable Long leadId, @RequestBody UpdateLeadRequest request) {
+        Leads updatedLead = leadsService.updateLead(leadId, request.getLead());
+        return ResponseEntity.ok(updatedLead);
     }
 
     @DeleteMapping("/{leadId}")

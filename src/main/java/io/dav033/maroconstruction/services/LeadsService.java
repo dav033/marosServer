@@ -21,6 +21,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -31,6 +33,9 @@ import java.util.stream.Collectors;
 public class LeadsService
         extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
 
+    @PersistenceContext
+    private EntityManager entityManager;
+    
     private final ContactsService contactsService;
     private final ContactsRepository contactsRepository;
     private final ProjectTypeRepository projectTypeRepository;
@@ -151,6 +156,56 @@ public class LeadsService
             return leadMapper.toDto(savedLeadEntity);
         } catch (DataIntegrityViolationException e) {
             throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", e);
+        }
+    }
+
+    @Transactional
+    public Leads updateLead(Long leadId, Leads updatedLead) {
+        // Verificar que el lead existe y obtener el leadNumber (necesario preservarlo)
+        LeadsEntity existingEntity = repository.findById(leadId)
+                .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(leadId));
+        
+        String originalLeadNumber = existingEntity.getLeadNumber();
+        
+        // Crear una nueva entidad limpia con solo los datos que queremos actualizar
+        LeadsEntity entityToUpdate = new LeadsEntity();
+        entityToUpdate.setId(leadId);
+        entityToUpdate.setLeadNumber(originalLeadNumber); // Preservar el número de lead
+        
+        // Mapear los campos actualizables del DTO a la entidad
+        leadMapper.updateEntity(updatedLead, entityToUpdate);
+        
+        // Asegurar que ID y leadNumber no se sobrescriban
+        entityToUpdate.setId(leadId);
+        entityToUpdate.setLeadNumber(originalLeadNumber);
+        
+        // Si se proporciona un contacto, validar que existe y establecer referencia
+        if (updatedLead.getContact() != null && updatedLead.getContact().getId() != null) {
+            if (!contactsRepository.existsById(updatedLead.getContact().getId())) {
+                throw new ContactExceptions.ContactNotFoundException(updatedLead.getContact().getId());
+            }
+            // Solo establecer la referencia por ID, no cargar la entidad completa
+            ContactsEntity contactRef = contactsRepository.getReferenceById(updatedLead.getContact().getId());
+            entityToUpdate.setContact(contactRef);
+        }
+        
+        // Si se proporciona un tipo de proyecto, validar que existe y establecer referencia
+        if (updatedLead.getProjectType() != null && updatedLead.getProjectType().getId() != null) {
+            if (!projectTypeRepository.existsById(updatedLead.getProjectType().getId())) {
+                throw new ProjectTypeExceptions.ProjectTypeNotFoundException(updatedLead.getProjectType().getId());
+            }
+            // Solo establecer la referencia por ID, no cargar la entidad completa
+            ProjectTypeEntity projectTypeRef = projectTypeRepository.getReferenceById(updatedLead.getProjectType().getId());
+            entityToUpdate.setProjectType(projectTypeRef);
+        }
+        
+        try {
+            // Limpiar el contexto de persistencia para evitar interferencias
+            entityManager.clear();
+            LeadsEntity savedEntity = repository.save(entityToUpdate);
+            return leadMapper.toDto(savedEntity);
+        } catch (DataIntegrityViolationException e) {
+            throw new LeadExceptions.LeadUpdateException("Data integrity error updating lead", e);
         }
     }
 

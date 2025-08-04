@@ -52,19 +52,14 @@ public class LeadsEntity {
     /**
      * Relación con ContactsEntity
      */
-    @ManyToOne(fetch = FetchType.LAZY,
-            cascade = { CascadeType.PERSIST, CascadeType.MERGE },
-            optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "contact_id", nullable = false)
     private ContactsEntity contact;
 
     /**
      * Relación con ProjectTypeEntity a través de la columna "type"
-     * Se ha eliminado CascadeType.PERSIST para evitar el error de entidad detached.
      */
-    @ManyToOne(fetch = FetchType.LAZY,
-            cascade = CascadeType.MERGE,
-            optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "type", nullable = false)
     private ProjectTypeEntity projectType;
 
