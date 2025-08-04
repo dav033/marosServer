@@ -56,39 +56,40 @@ public class CustomFieldsBuilder {
         // 🏷️ CUSTOM FIELDS DE CLICKUP - MAPEO COMPLETO:
         log.info("🏷️ === MAPPING DE CUSTOM FIELDS DE CLICKUP ===");
         
-        // Agregar cada campo si tiene valor
-        addFieldIfPresent(fields, "524a8b7c-cfb7-4361-886e-59a019f8c5b5", contactName,    "👤 Contact Name");
-        addFieldIfPresent(fields, "c8dbf709-6ef9-479f-a915-b20518ac30e6", companyName,   "🏢 Company Name");
-        addFieldIfPresent(fields, "f2220992-2039-4a6f-9717-b53ede8f5ec1", contactEmail,  "📧 Contact Email");
-        addFieldIfPresent(fields, "9edb199d-5c9f-404f-84f1-ad6a78597175", contactPhone,  "📞 Contact Phone (Primary)");
-        addFieldIfPresent(fields, "f94558c8-3c7a-48cb-999c-c697b7842ddf", contactPhone,  "📞 Contact Phone (Secondary)");
-        addFieldIfPresent(fields, "401a9851-6f11-4043-b577-4c7b3f03fb03", location,      "📍 Location");
-        addFieldIfPresent(fields, "53d6e312-0f63-40ba-8f87-1f3092d8b322", leadNumber,    "🔢 Lead Number");
+        // Agregar todos los campos (incluso si están vacíos para permitir limpiar en ClickUp)
+        addField(fields, "524a8b7c-cfb7-4361-886e-59a019f8c5b5", contactName,    "👤 Contact Name");
+        addField(fields, "c8dbf709-6ef9-479f-a915-b20518ac30e6", companyName,   "🏢 Company Name");
+        addField(fields, "f2220992-2039-4a6f-9717-b53ede8f5ec1", contactEmail,  "📧 Contact Email");
+        addField(fields, "9edb199d-5c9f-404f-84f1-ad6a78597175", contactPhone,  "📞 Contact Phone (Primary)");
+        addField(fields, "f94558c8-3c7a-48cb-999c-c697b7842ddf", contactPhone,  "📞 Contact Phone (Secondary)");
+        addField(fields, "401a9851-6f11-4043-b577-4c7b3f03fb03", location,      "📍 Location");
+        addField(fields, "53d6e312-0f63-40ba-8f87-1f3092d8b322", leadNumber,    "🔢 Lead Number");
         
         log.info("=== FIN DEL MAPPING ===");
 
         log.info("✅ Built {} custom fields for ClickUp task update", fields.size());
-        if (fields.isEmpty()) {
-            log.warn("⚠️ WARNING: No custom fields were built! This means contact information won't be updated in ClickUp.");
-        }
         
         return fields;
     }
 
-    private void addFieldIfPresent(
+    private void addField(
             List<ClickUpTaskRequest.CustomField> list,
             String fieldId,
             String value,
             String description
     ) {
-        if (value != null && !value.isBlank()) {
-            log.info("   ✅ {} → ID: '{}' → Value: '{}'", description, fieldId, value.trim());
-            list.add(ClickUpTaskRequest.CustomField.builder()
-                .id(fieldId)
-                .value(value.trim())
-                .build());
+        // Siempre agregar el campo, incluso si está vacío (para permitir limpiar campos en ClickUp)
+        String finalValue = value != null ? value.trim() : "";
+        
+        if (!finalValue.isEmpty()) {
+            log.info("   ✅ {} → ID: '{}' → Value: '{}'", description, fieldId, finalValue);
         } else {
-            log.info("   ❌ {} → ID: '{}' → (Sin valor - no se agregará)", description, fieldId);
+            log.info("   🔄 {} → ID: '{}' → (Valor vacío - se limpiará en ClickUp)", description, fieldId);
         }
+        
+        list.add(ClickUpTaskRequest.CustomField.builder()
+            .id(fieldId)
+            .value(finalValue)
+            .build());
     }
 }
