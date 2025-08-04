@@ -31,24 +31,38 @@ public class CustomFieldsBuilder {
         if (dto.getContactId() != null) {
             try {
                 contact = contactsService.getContactById(dto.getContactId());
-                log.info("Found contact for update: id={}, name={}, email={}, phone={}, company={}", 
+                log.info("✅ Found contact for update: id={}, name='{}', email='{}', phone='{}', company='{}'", 
                         contact.getId(), contact.getName(), contact.getEmail(), 
                         contact.getPhone(), contact.getCompanyName());
             } catch (Exception e) { 
-                log.warn("Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
+                log.error("❌ ERROR: Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
+                // Intentar de nuevo para debug
+                try {
+                    log.info("🔍 Debugging: Attempting to query contact again...");
+                    contact = contactsService.getContactById(dto.getContactId());
+                    log.info("🔍 Second attempt successful: contact found");
+                } catch (Exception e2) {
+                    log.error("🔍 Second attempt also failed: {}", e2.getMessage());
+                }
             }
         } else {
-            log.info("No contactId provided for lead: {}", dto.getLeadNumber());
+            log.warn("⚠️ No contactId provided for lead: {}", dto.getLeadNumber());
+        }
+
+        // Verificar si tenemos contacto
+        if (contact == null) {
+            log.error("❌ CRITICAL: No contact data available for lead {}. Custom fields for contact will be empty!", 
+                    dto.getLeadNumber());
         }
 
         String leadNumber   = Optional.ofNullable(dto.getLeadNumber()).orElse("");
         String location     = Optional.ofNullable(dto.getLocation()).orElse("");
-        String contactName  = contact != null ? contact.getName() : "";
-        String contactEmail = contact != null ? contact.getEmail() : "";
-        String contactPhone = contact != null ? contact.getPhone() : "";
-        String companyName  = contact != null ? contact.getCompanyName() : "";
+        String contactName  = contact != null ? Optional.ofNullable(contact.getName()).orElse("") : "";
+        String contactEmail = contact != null ? Optional.ofNullable(contact.getEmail()).orElse("") : "";
+        String contactPhone = contact != null ? Optional.ofNullable(contact.getPhone()).orElse("") : "";
+        String companyName  = contact != null ? Optional.ofNullable(contact.getCompanyName()).orElse("") : "";
 
-        log.info("Mapped contact fields for ClickUp: name='{}', email='{}', phone='{}', company='{}'", 
+        log.info("📋 Final mapped contact fields for ClickUp: name='{}', email='{}', phone='{}', company='{}'", 
                 contactName, contactEmail, contactPhone, companyName);
 
         // Agregar cada campo si tiene valor
@@ -60,7 +74,11 @@ public class CustomFieldsBuilder {
         addFieldIfPresent(fields, "401a9851-6f11-4043-b577-4c7b3f03fb03", location);
         addFieldIfPresent(fields, "53d6e312-0f63-40ba-8f87-1f3092d8b322", leadNumber);
 
-        log.info("Built {} custom fields for ClickUp task update", fields.size());
+        log.info("✅ Built {} custom fields for ClickUp task update", fields.size());
+        if (fields.isEmpty()) {
+            log.warn("⚠️ WARNING: No custom fields were built! This means contact information won't be updated in ClickUp.");
+        }
+        
         return fields;
     }
 
