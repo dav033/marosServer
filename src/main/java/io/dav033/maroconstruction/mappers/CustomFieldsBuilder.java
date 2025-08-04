@@ -11,7 +11,9 @@ import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.services.ContactsService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class CustomFieldsBuilder {
@@ -21,12 +23,22 @@ public class CustomFieldsBuilder {
     public List<ClickUpTaskRequest.CustomField> build(LeadPayloadDto dto) {
         List<ClickUpTaskRequest.CustomField> fields = new ArrayList<>();
 
+        log.info("Building custom fields for lead: leadNumber={}, contactId={}", 
+                dto.getLeadNumber(), dto.getContactId());
+
         // Intentamos obtener datos del contacto si viene contactId
         Contacts contact = null;
         if (dto.getContactId() != null) {
             try {
                 contact = contactsService.getContactById(dto.getContactId());
-            } catch (Exception ignored) { }
+                log.info("Found contact for update: id={}, name={}, email={}, phone={}, company={}", 
+                        contact.getId(), contact.getName(), contact.getEmail(), 
+                        contact.getPhone(), contact.getCompanyName());
+            } catch (Exception e) { 
+                log.warn("Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
+            }
+        } else {
+            log.info("No contactId provided for lead: {}", dto.getLeadNumber());
         }
 
         String leadNumber   = Optional.ofNullable(dto.getLeadNumber()).orElse("");
@@ -35,6 +47,9 @@ public class CustomFieldsBuilder {
         String contactEmail = contact != null ? contact.getEmail() : "";
         String contactPhone = contact != null ? contact.getPhone() : "";
         String companyName  = contact != null ? contact.getCompanyName() : "";
+
+        log.info("Mapped contact fields for ClickUp: name='{}', email='{}', phone='{}', company='{}'", 
+                contactName, contactEmail, contactPhone, companyName);
 
         // Agregar cada campo si tiene valor
         addFieldIfPresent(fields, "524a8b7c-cfb7-4361-886e-59a019f8c5b5", contactName);
@@ -45,6 +60,7 @@ public class CustomFieldsBuilder {
         addFieldIfPresent(fields, "401a9851-6f11-4043-b577-4c7b3f03fb03", location);
         addFieldIfPresent(fields, "53d6e312-0f63-40ba-8f87-1f3092d8b322", leadNumber);
 
+        log.info("Built {} custom fields for ClickUp task update", fields.size());
         return fields;
     }
 

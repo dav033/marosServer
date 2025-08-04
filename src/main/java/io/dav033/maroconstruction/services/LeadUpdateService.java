@@ -32,6 +32,9 @@ public class LeadUpdateService {
         try {
             LeadPayloadDto dto = payloadMapper.toDto(payload);
             
+            log.info("Processing lead update: leadNumber={}, contactId={}, name={}", 
+                    dto.getLeadNumber(), dto.getContactId(), dto.getName());
+            
             if (dto.getLeadNumber() == null || dto.getLeadNumber().trim().isEmpty()) {
                 log.warn("Cannot update task: lead_number not available in payload");
                 return null;
