@@ -10,7 +10,6 @@ import io.dav033.maroconstruction.exceptions.ContactExceptions;
 import io.dav033.maroconstruction.exceptions.DatabaseException;
 import io.dav033.maroconstruction.exceptions.LeadExceptions;
 import io.dav033.maroconstruction.exceptions.ProjectTypeExceptions;
-import io.dav033.maroconstruction.mappers.ContactsMapper;
 import io.dav033.maroconstruction.mappers.GenericMapper;
 import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
@@ -23,11 +22,7 @@ import io.dav033.maroconstruction.repositories.ProjectTypeRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,7 +31,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -146,12 +140,47 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         LeadsEntity entity = repository.findById(id)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
 
-        leadMapper.updateEntity(patch, entity);
+        // Actualizar manualmente para evitar cambiar el ID
+        updateEntityFields(patch, entity);
         entityManager.flush();
 
         Leads dto = leadMapper.toDto(entity);
         syncWithClickUp(dto);
         return dto;
+    }
+
+    /**
+     * Actualiza los campos de la entidad sin modificar el ID
+     */
+    private void updateEntityFields(Leads dto, LeadsEntity entity) {
+        if (dto.getLeadNumber() != null) {
+            entity.setLeadNumber(dto.getLeadNumber());
+        }
+        if (dto.getName() != null) {
+            entity.setName(dto.getName());
+        }
+        if (dto.getStartDate() != null) {
+            entity.setStartDate(dto.getStartDate());
+        }
+        if (dto.getLocation() != null) {
+            entity.setLocation(dto.getLocation());
+        }
+        if (dto.getStatus() != null) {
+            entity.setStatus(dto.getStatus());
+        }
+        if (dto.getLeadType() != null) {
+            entity.setLeadType(dto.getLeadType());
+        }
+        if (dto.getContact() != null && dto.getContact().getId() != null) {
+            ContactsEntity contactEntity = contactsRepository.findById(dto.getContact().getId())
+                    .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(dto.getContact().getId()));
+            entity.setContact(contactEntity);
+        }
+        if (dto.getProjectType() != null && dto.getProjectType().getId() != null) {
+            ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(dto.getProjectType().getId())
+                    .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(dto.getProjectType().getId()));
+            entity.setProjectType(projectTypeEntity);
+        }
     }
 
     /*
