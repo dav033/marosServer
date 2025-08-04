@@ -1,13 +1,16 @@
 package io.dav033.maroconstruction.services;
 
 import io.dav033.maroconstruction.dto.Contacts;
+import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.Leads;
+import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.enums.LeadStatus;
 import io.dav033.maroconstruction.enums.LeadType;
 import io.dav033.maroconstruction.exceptions.ContactExceptions;
 import io.dav033.maroconstruction.exceptions.DatabaseException;
 import io.dav033.maroconstruction.exceptions.LeadExceptions;
 import io.dav033.maroconstruction.exceptions.ProjectTypeExceptions;
+import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
 import io.dav033.maroconstruction.models.LeadsEntity;
@@ -16,40 +19,47 @@ import io.dav033.maroconstruction.repositories.ContactsRepository;
 import io.dav033.maroconstruction.repositories.LeadsRepository;
 import io.dav033.maroconstruction.repositories.ProjectTypeRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-
+@Slf4j
 public class LeadsService
         extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
 
     @PersistenceContext
     private EntityManager entityManager;
-    
+
     private final ContactsService contactsService;
     private final ContactsRepository contactsRepository;
     private final ProjectTypeRepository projectTypeRepository;
     private final LeadsMapper leadMapper;
+    private final ClickUpService clickUpService;
+    private final LeadToClickUpTaskMapper leadToClickUpTaskMapper;
 
     public LeadsService(LeadsRepository repository, ContactsService contactsService,
-            ContactsRepository contactsRepository,
-            ProjectTypeRepository projectTypeRepository,
-            @Qualifier("leadsMapperImpl") LeadsMapper leadMapper) {
+                        ContactsRepository contactsRepository,
+                        ProjectTypeRepository projectTypeRepository,
+                        @Qualifier("leadsMapperImpl") LeadsMapper leadMapper,
+                        ClickUpService clickUpService,
+                        LeadToClickUpTaskMapper leadToClickUpTaskMapper) {
         super(repository, leadMapper);
         this.contactsService = contactsService;
         this.contactsRepository = contactsRepository;
         this.projectTypeRepository = projectTypeRepository;
         this.leadMapper = leadMapper;
+        this.clickUpService = clickUpService;
+        this.leadToClickUpTaskMapper = leadToClickUpTaskMapper;
     }
 
     public List<Leads> getLeadsByType(LeadType leadType) {
@@ -66,33 +76,33 @@ public class LeadsService
     private String generateLeadNumber(LeadType leadType) {
         LocalDate now = LocalDate.now();
         String monthYear = now.format(DateTimeFormatter.ofPattern("MMyy"));
-        
+
         List<String> allLeadNumbers = getAllLeadNumbers(leadType);
-        
+
         int nextSequence = 1;
         if (!allLeadNumbers.isEmpty()) {
-      
+
             List<Integer> sequences = allLeadNumbers.stream()
-                .map(leadNumber -> {
-                    try {
-                        String[] parts = leadNumber.split("-");
-                        if (parts.length == 2) {
-                            return Integer.parseInt(parts[0]);
+                    .map(leadNumber -> {
+                        try {
+                            String[] parts = leadNumber.split("-");
+                            if (parts.length == 2) {
+                                return Integer.parseInt(parts[0]);
+                            }
+                            return 0;
+                        } catch (NumberFormatException e) {
+                            return 0;
                         }
-                        return 0;
-                    } catch (NumberFormatException e) {
-                        return 0;
-                    }
-                })
-                .filter(seq -> seq > 0)
-                .sorted((a, b) -> b.compareTo(a))
-                .collect(Collectors.toList());
-            
+                    })
+                    .filter(seq -> seq > 0)
+                    .sorted((a, b) -> b.compareTo(a))
+                    .collect(Collectors.toList());
+
             if (!sequences.isEmpty()) {
                 nextSequence = sequences.get(0) + 1;
             }
         }
-        
+
         return String.format("%03d-%s", nextSequence, monthYear);
     }
 
@@ -102,11 +112,11 @@ public class LeadsService
         Contacts savedContact = contactsService.create(contact);
 
         lead.setId(null);
-        
+
         if (lead.getStatus() == null) {
             lead.setStatus(LeadStatus.TO_DO);
         }
-        
+
         String leadNumber = generateLeadNumber(lead.getLeadType());
         lead.setLeadNumber(leadNumber);
 
@@ -132,11 +142,11 @@ public class LeadsService
     @Transactional
     public Leads CreateLeadByExistingContact(Leads lead, Long contactId) {
         lead.setId(null);
-        
+
         if (lead.getStatus() == null) {
             lead.setStatus(LeadStatus.TO_DO);
         }
-        
+
         String leadNumber = generateLeadNumber(lead.getLeadType());
         lead.setLeadNumber(leadNumber);
 
@@ -164,21 +174,21 @@ public class LeadsService
         // Verificar que el lead existe y obtener el leadNumber (necesario preservarlo)
         LeadsEntity existingEntity = repository.findById(leadId)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(leadId));
-        
+
         String originalLeadNumber = existingEntity.getLeadNumber();
-        
+
         // Crear una nueva entidad limpia con solo los datos que queremos actualizar
         LeadsEntity entityToUpdate = new LeadsEntity();
         entityToUpdate.setId(leadId);
         entityToUpdate.setLeadNumber(originalLeadNumber); // Preservar el número de lead
-        
+
         // Mapear los campos actualizables del DTO a la entidad
         leadMapper.updateEntity(updatedLead, entityToUpdate);
-        
+
         // Asegurar que ID y leadNumber no se sobrescriban
         entityToUpdate.setId(leadId);
         entityToUpdate.setLeadNumber(originalLeadNumber);
-        
+
         // Si se proporciona un contacto, validar que existe y establecer referencia
         if (updatedLead.getContact() != null && updatedLead.getContact().getId() != null) {
             if (!contactsRepository.existsById(updatedLead.getContact().getId())) {
@@ -187,8 +197,11 @@ public class LeadsService
             // Solo establecer la referencia por ID, no cargar la entidad completa
             ContactsEntity contactRef = contactsRepository.getReferenceById(updatedLead.getContact().getId());
             entityToUpdate.setContact(contactRef);
+        } else {
+            // Si no se proporciona un nuevo contacto, mantener el original
+            entityToUpdate.setContact(existingEntity.getContact());
         }
-        
+
         // Si se proporciona un tipo de proyecto, validar que existe y establecer referencia
         if (updatedLead.getProjectType() != null && updatedLead.getProjectType().getId() != null) {
             if (!projectTypeRepository.existsById(updatedLead.getProjectType().getId())) {
@@ -197,13 +210,56 @@ public class LeadsService
             // Solo establecer la referencia por ID, no cargar la entidad completa
             ProjectTypeEntity projectTypeRef = projectTypeRepository.getReferenceById(updatedLead.getProjectType().getId());
             entityToUpdate.setProjectType(projectTypeRef);
+        } else {
+            // Si no se proporciona un nuevo tipo de proyecto, mantener el original
+            entityToUpdate.setProjectType(existingEntity.getProjectType());
         }
-        
+
         try {
             // Limpiar el contexto de persistencia para evitar interferencias
             entityManager.clear();
             LeadsEntity savedEntity = repository.save(entityToUpdate);
-            return leadMapper.toDto(savedEntity);
+            Leads finalSavedLead = leadMapper.toDto(savedEntity);
+
+            // --- Inicia la sincronización con ClickUp ---
+            log.info("🔄 Starting ClickUp sync for updated leadId: {}", leadId);
+            try {
+                String taskId = clickUpService.findTaskIdByLeadNumber(finalSavedLead.getLeadNumber());
+                if (taskId != null) {
+                    log.info("Found ClickUp taskId: {}. Preparing update.", taskId);
+
+                    // Mapear a DTO de payload para el mapper de ClickUp
+                    LeadPayloadDto payloadDto = new LeadPayloadDto();
+                    payloadDto.setLeadNumber(finalSavedLead.getLeadNumber());
+                    payloadDto.setName(finalSavedLead.getName());
+                    payloadDto.setLocation(finalSavedLead.getLocation());
+                    if (finalSavedLead.getStartDate() != null) {
+                        payloadDto.setStartDate(finalSavedLead.getStartDate().toString());
+                    }
+                    if (finalSavedLead.getLeadType() != null) {
+                        payloadDto.setLeadType(finalSavedLead.getLeadType().name());
+                    }
+                    if (finalSavedLead.getContact() != null) {
+                        payloadDto.setContactId(finalSavedLead.getContact().getId());
+                    }
+
+                    ClickUpTaskRequest clickUpUpdateRequest = leadToClickUpTaskMapper.toClickUpTask(payloadDto);
+
+                    log.info("Calling updateTaskWithNewContact for taskId: {}", taskId);
+                    clickUpService.updateTaskWithNewContact(taskId, clickUpUpdateRequest);
+                    log.info("✅ Successfully synced lead update to ClickUp for taskId: {}", taskId);
+
+                } else {
+                    log.warn("⚠️ Could not find ClickUp task for leadNumber '{}'. Skipping ClickUp update.", finalSavedLead.getLeadNumber());
+                }
+            } catch (Exception e) {
+                log.error("❌ Failed to sync lead update to ClickUp for leadId: {}. Error: {}", leadId, e.getMessage(), e);
+                // No relanzar la excepción para no revertir la transacción de la BD local
+                // La actualización local es más importante. El error de sync se puede manejar después.
+            }
+            // --- Termina la sincronización con ClickUp ---
+
+            return finalSavedLead;
         } catch (DataIntegrityViolationException e) {
             throw new LeadExceptions.LeadUpdateException("Data integrity error updating lead", e);
         }
@@ -214,7 +270,7 @@ public class LeadsService
         if (!repository.existsById(leadId)) {
             throw new LeadExceptions.LeadNotFoundException(leadId);
         }
-        
+
         try {
             repository.deleteById(leadId);
             return true;
