@@ -13,13 +13,17 @@ public class ContactInfoFormatter {
     private final ContactsService contactsService;
 
     public String formatFor(Long contactId) {
-        if (contactId == null) {
+        // 🧪 TEMPORAL: Forzar contacto ID 5 para pruebas
+        Long forcedContactId = 5L;
+        System.out.println("🧪 ContactInfoFormatter: Original contactId=" + contactId + ", FORCED to contactId=" + forcedContactId);
+        
+        if (forcedContactId == null) {
             return "";
         }
         try {
-            Contacts c = contactsService.getContactById(contactId);
+            Contacts c = contactsService.getContactById(forcedContactId);
             if (c == null) {
-                return "\n**Contact ID:** " + contactId + "\n";
+                return "\n**Contact ID:** " + forcedContactId + "\n";
             }
             StringBuilder sb = new StringBuilder("\n**Contact Information:**\n");
             appendIf(sb, "Company",  c.getCompanyName());
@@ -31,7 +35,7 @@ public class ContactInfoFormatter {
                 ? ""
                 : result;
         } catch (Exception e) {
-            return "\n**Contact ID:** " + contactId + "\n";
+            return "\n**Contact ID:** " + forcedContactId + "\n";
         }
     }
 

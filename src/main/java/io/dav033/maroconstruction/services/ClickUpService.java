@@ -194,8 +194,9 @@ public class ClickUpService {
             
             HttpEntity<Object> entity = new HttpEntity<>(fieldUpdateRequest, headersProvider.get());
             
-            log.debug("Actualizando custom field: taskId={}, fieldId={}, value='{}'", 
-                    taskId, field.getId(), field.getValue());
+            log.info("🔧 Actualizando custom field: URL={}, taskId={}, fieldId={}, value='{}'", 
+                    url, taskId, field.getId(), field.getValue());
+            log.info("🔧 Request body: {}", fieldUpdateRequest);
             
             ResponseEntity<String> response = restTemplate.exchange(
                 url, 
@@ -205,10 +206,11 @@ public class ClickUpService {
             );
             
             if (response.getStatusCode().is2xxSuccessful()) {
-                log.debug("Custom field {} actualizado exitosamente", field.getId());
+                log.info("✅ Custom field {} actualizado exitosamente. Response: {}", 
+                        field.getId(), response.getBody());
             } else {
-                log.warn("Respuesta no exitosa al actualizar custom field {}: {}", 
-                        field.getId(), response.getStatusCode());
+                log.error("❌ Respuesta no exitosa al actualizar custom field {}: Status={}, Body={}", 
+                        field.getId(), response.getStatusCode(), response.getBody());
             }
             
         } catch (Exception e) {
@@ -273,6 +275,75 @@ public class ClickUpService {
 
     public boolean isConfigured() {
         return urlBuilder.isConfigured();
+    }
+
+    /**
+     * Actualiza completamente un task de ClickUp con nueva información de contacto
+     * Actualiza: nombre, descripción y todos los custom fields
+     */
+    public ClickUpTaskResponse updateTaskWithNewContact(String taskId, ClickUpTaskRequest newTaskData) {
+        if (!isConfigured()) {
+            throw new ClickUpException("ClickUp is not configured correctly. Check configuration properties.");
+        }
+        
+        if (taskId == null || taskId.trim().isEmpty()) {
+            throw new ClickUpException("Task ID is required for update");
+        }
+        
+        if (newTaskData == null) {
+            throw new ClickUpException("New task data is required");
+        }
+        
+        try {
+            log.info("🔄 STARTING COMPLETE TASK UPDATE: taskId={}", taskId);
+            log.info("📝 New task name: {}", newTaskData.getName());
+            log.info("📄 New description length: {} chars", 
+                newTaskData.getDescription() != null ? newTaskData.getDescription().length() : 0);
+            
+            // Paso 1: Actualizar información básica del task (nombre y descripción)
+            ClickUpTaskRequest basicUpdate = ClickUpTaskRequest.builder()
+                .name(newTaskData.getName())
+                .description(newTaskData.getDescription())
+                .build();
+            
+            String url = urlBuilder.buildUpdateTaskUrl(taskId);
+            HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(basicUpdate, headersProvider.get());
+
+            log.info("🔄 Updating basic task info at URL: {}", url);
+            
+            ResponseEntity<ClickUpTaskResponse> response = restTemplate.exchange(
+                url, 
+                HttpMethod.PUT, 
+                entity, 
+                ClickUpTaskResponse.class
+            );
+
+            ClickUpTaskResponse responseBody = response.getBody();
+            if (responseBody == null) {
+                throw new ClickUpException("ClickUp basic update response was null");
+            }
+
+            log.info("✅ Basic task info updated successfully");
+            
+            // Paso 2: Actualizar custom fields con nueva información de contacto
+            if (newTaskData.getCustomFields() != null && !newTaskData.getCustomFields().isEmpty()) {
+                log.info("🔄 Updating {} custom fields with new contact data", newTaskData.getCustomFields().size());
+                updateCustomFields(taskId, newTaskData.getCustomFields());
+                log.info("✅ Custom fields updated successfully");
+            } else {
+                log.warn("⚠️ No custom fields provided for update");
+            }
+
+            log.info("🎉 COMPLETE TASK UPDATE FINISHED: taskId={}", taskId);
+            return responseBody;
+            
+        } catch (RestClientException e) {
+            log.error("❌ Error updating complete task in ClickUp: taskId={}, error={}", taskId, e.getMessage());
+            throw new ClickUpException("Failed to update complete task in ClickUp: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("❌ Unexpected error updating complete task: taskId={}, error={}", taskId, e.getMessage());
+            throw new ClickUpException("Unexpected error updating complete task: " + e.getMessage(), e);
+        }
     }
 
     private void logCustomFields(List<ClickUpTaskRequest.CustomField> fields) {

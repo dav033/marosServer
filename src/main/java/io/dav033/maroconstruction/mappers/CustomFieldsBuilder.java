@@ -26,27 +26,19 @@ public class CustomFieldsBuilder {
         log.info("Building custom fields for lead: leadNumber={}, contactId={}", 
                 dto.getLeadNumber(), dto.getContactId());
 
-        // Intentamos obtener datos del contacto si viene contactId
+        // 🧪 PRUEBA TEMPORAL: Forzar contacto ID 5 para probar el cambio
+        log.info("🧪 FORZANDO contacto ID 5 para prueba de cambio");
+        Long forcedContactId = 5L;
+        
+        // Intentamos obtener datos del contacto FORZADO ID 5
         Contacts contact = null;
-        if (dto.getContactId() != null) {
-            try {
-                contact = contactsService.getContactById(dto.getContactId());
-                log.info("✅ Found contact for update: id={}, name='{}', email='{}', phone='{}', company='{}'", 
-                        contact.getId(), contact.getName(), contact.getEmail(), 
-                        contact.getPhone(), contact.getCompanyName());
-            } catch (Exception e) { 
-                log.error("❌ ERROR: Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
-                // Intentar de nuevo para debug
-                try {
-                    log.info("🔍 Debugging: Attempting to query contact again...");
-                    contact = contactsService.getContactById(dto.getContactId());
-                    log.info("🔍 Second attempt successful: contact found");
-                } catch (Exception e2) {
-                    log.error("🔍 Second attempt also failed: {}", e2.getMessage());
-                }
-            }
-        } else {
-            log.warn("⚠️ No contactId provided for lead: {}", dto.getLeadNumber());
+        try {
+            contact = contactsService.getContactById(forcedContactId);
+            log.info("✅ Found FORCED contact ID 5: id={}, name='{}', email='{}', phone='{}', company='{}'", 
+                    contact.getId(), contact.getName(), contact.getEmail(), 
+                    contact.getPhone(), contact.getCompanyName());
+        } catch (Exception e) { 
+            log.error("❌ ERROR: Could not find FORCED contact with id={}: {}", forcedContactId, e.getMessage());
         }
 
         // Verificar si tenemos contacto
