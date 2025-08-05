@@ -22,24 +22,10 @@ import org.springframework.web.client.RestTemplate;
 @RequiredArgsConstructor
 public class ClickUpService {
 
-    private static final Map<String, String> CUSTOM_FIELD_DESCRIPTIONS = Map.ofEntries(
-            Map.entry("524a8b7c-cfb7-4361-886e-59a019f8c5b5", "👤 Contact Name"),
-            Map.entry("c8dbf709-6ef9-479f-a915-b20518ac30e6", "🏢 Company Name"),
-            Map.entry("f2220992-2039-4a6f-9717-b53ede8f5ec1", "📧 Contact Email"),
-            Map.entry("9edb199d-5c9f-404f-84f1-ad6a78597175", "📞 Contact Phone (Primary)"),
-            Map.entry("f94558c8-3c7a-48cb-999c-c697b7842ddf", "📞 Contact Phone (Secondary)"),
-            Map.entry("401a9851-6f11-4043-b577-4c7b3f03fb03", "📍 Location"),
-            Map.entry("53d6e312-0f63-40ba-8f87-1f3092d8b322", "🔢 Lead Number")
-    );
-
     private final ClickUpUrlBuilder urlBuilder;
     private final ClickUpHeadersProvider headersProvider;
     private final RestTemplate restTemplate;
     private final ClickUpConfig config;
-
-    /*------------------------------------------------------------
-     *  Operaciones públicas
-     *-----------------------------------------------------------*/
 
     public ClickUpTaskResponse createTask(ClickUpTaskRequest taskRequest) {
         validateConfigured();
@@ -110,12 +96,15 @@ public class ClickUpService {
         return execute("find task by lead number", () -> {
             String url = urlBuilder.buildGetTasksUrl();
             HttpEntity<Void> entity = new HttpEntity<>(headersProvider.get());
-            ClickUpTaskListResponse list = restTemplate.exchange(url, HttpMethod.GET, entity, ClickUpTaskListResponse.class).getBody();
-            if (list == null || list.getTasks() == null) return null;
+            ClickUpTaskListResponse list = restTemplate
+                    .exchange(url, HttpMethod.GET, entity, ClickUpTaskListResponse.class).getBody();
+            if (list == null || list.getTasks() == null)
+                return null;
             return list.getTasks().stream()
                     .filter(t -> t.getCustomFields() != null)
                     .filter(t -> t.getCustomFields().stream()
-                            .anyMatch(f -> "53d6e312-0f63-40ba-8f87-1f3092d8b322".equals(f.getId()) && leadNumber.equals(String.valueOf(f.getValue()))))
+                            .anyMatch(f -> "53d6e312-0f63-40ba-8f87-1f3092d8b322".equals(f.getId())
+                                    && leadNumber.equals(String.valueOf(f.getValue()))))
                     .map(ClickUpTaskListResponse.ClickUpTaskSummary::getId)
                     .findFirst()
                     .orElse(null);
@@ -125,10 +114,6 @@ public class ClickUpService {
     public boolean isConfigured() {
         return urlBuilder.isConfigured();
     }
-
-    /*------------------------------------------------------------
-     *  Métodos auxiliares
-     *-----------------------------------------------------------*/
 
     private void updateCustomFields(String taskId, List<ClickUpTaskRequest.CustomField> customFields) {
         customFields.forEach(field -> execute("update custom field", () -> {
@@ -148,7 +133,8 @@ public class ClickUpService {
             throw new ClickUpException("ClickUp " + action + " failed: " + e.getMessage(), e);
         } catch (Exception e) {
             log.error("Error inesperado durante la acción '{}' en ClickUp: {}", action, e.getMessage(), e);
-            throw new ClickUpException("Unexpected error in ClickUp while attempting to " + action + ": " + e.getMessage(), e);
+            throw new ClickUpException(
+                    "Unexpected error in ClickUp while attempting to " + action + ": " + e.getMessage(), e);
         }
     }
 

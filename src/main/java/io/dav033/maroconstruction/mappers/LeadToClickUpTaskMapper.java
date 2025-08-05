@@ -77,7 +77,7 @@ public abstract class LeadToClickUpTaskMapper {
         if (dateString == null || dateString.trim().isEmpty()) {
             return null;
         }
-        
+
         try {
             LocalDate date = LocalDate.parse(dateString);
             return date.atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli();

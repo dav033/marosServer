@@ -1,9 +1,7 @@
 package io.dav033.maroconstruction.services;
 
 import io.dav033.maroconstruction.dto.Contacts;
-import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.Leads;
-import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.enums.LeadStatus;
 import io.dav033.maroconstruction.enums.LeadType;
 import io.dav033.maroconstruction.exceptions.ContactExceptions;
@@ -11,7 +9,6 @@ import io.dav033.maroconstruction.exceptions.DatabaseException;
 import io.dav033.maroconstruction.exceptions.LeadExceptions;
 import io.dav033.maroconstruction.exceptions.ProjectTypeExceptions;
 import io.dav033.maroconstruction.mappers.GenericMapper;
-import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
 import io.dav033.maroconstruction.models.LeadsEntity;
@@ -43,17 +40,14 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
             ContactsRepository contactsRepository,
             ProjectTypeRepository projectTypeRepository,
             LeadsMapper leadMapper,
-            ClickUpService clickUpService,
-            LeadToClickUpTaskMapper taskMapper,
-            EntityManager entityManager
-    ) {
+            LeadClickUpSyncService leadClickUpSyncService,
+            EntityManager entityManager) {
         super(repository, mapper);
         this.contactsService = contactsService;
         this.contactsRepository = contactsRepository;
         this.projectTypeRepository = projectTypeRepository;
         this.leadMapper = leadMapper;
-        this.clickUpService = clickUpService;
-        this.taskMapper = taskMapper;
+        this.leadClickUpSyncService = leadClickUpSyncService;
         this.entityManager = entityManager;
     }
 
@@ -73,8 +67,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private final ContactsRepository contactsRepository;
     private final ProjectTypeRepository projectTypeRepository;
     private final LeadsMapper leadMapper;
-    private final ClickUpService clickUpService;
-    private final LeadToClickUpTaskMapper taskMapper;
+    private final LeadClickUpSyncService leadClickUpSyncService;
 
     @PersistenceContext
     private final EntityManager entityManager;
@@ -124,34 +117,30 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
 
         try {
             LeadsEntity saved = repository.save(entity);
-            return leadMapper.toDto(saved);
+            Leads dto = leadMapper.toDto(saved);
+            
+            // Sincronizar con ClickUp después de crear
+            leadClickUpSyncService.syncLeadCreate(dto);
+            
+            return dto;
         } catch (DataIntegrityViolationException ex) {
             throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", ex);
         }
     }
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * ACTUALIZACIÓN
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
     @Transactional
     public Leads updateLead(Long id, Leads patch) {
         LeadsEntity entity = repository.findById(id)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
 
-        // Actualizar manualmente para evitar cambiar el ID
         updateEntityFields(patch, entity);
         entityManager.flush();
 
         Leads dto = leadMapper.toDto(entity);
-        syncWithClickUp(dto);
+        leadClickUpSyncService.syncLeadUpdate(dto);
         return dto;
     }
 
-    /**
-     * Actualiza los campos de la entidad sin modificar el ID
-     */
     private void updateEntityFields(Leads dto, LeadsEntity entity) {
         if (dto.getLeadNumber() != null) {
             entity.setLeadNumber(dto.getLeadNumber());
@@ -178,21 +167,21 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         }
         if (dto.getProjectType() != null && dto.getProjectType().getId() != null) {
             ProjectTypeEntity projectTypeEntity = projectTypeRepository.findById(dto.getProjectType().getId())
-                    .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(dto.getProjectType().getId()));
+                    .orElseThrow(
+                            () -> new ProjectTypeExceptions.ProjectTypeNotFoundException(dto.getProjectType().getId()));
             entity.setProjectType(projectTypeEntity);
         }
     }
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * ELIMINACIÓN
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
     @Transactional
     public boolean deleteLead(Long id) {
-        if (!repository.existsById(id)) {
-            throw new LeadExceptions.LeadNotFoundException(id);
-        }
+        LeadsEntity entity = repository.findById(id)
+                .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
+        
+        // Convertir a DTO y sincronizar eliminación con ClickUp antes de eliminar
+        Leads dto = leadMapper.toDto(entity);
+        leadClickUpSyncService.syncLeadDelete(dto);
+        
         try {
             repository.deleteById(id);
             return true;
@@ -201,11 +190,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         }
     }
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * UTILIDADES PRIVADAS
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
     private void applyDefaults(Leads lead) {
         lead.setId(null);
         lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.TO_DO));
@@ -221,31 +205,5 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private ProjectTypeEntity resolveProjectType(Long id) {
         return projectTypeRepository.findById(id)
                 .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(id));
-    }
-
-    private void syncWithClickUp(Leads lead) {
-        if (!clickUpService.isConfigured())
-            return;
-        try {
-            String taskId = clickUpService.findTaskIdByLeadNumber(lead.getLeadNumber());
-            if (taskId == null) {
-                log.warn("No ClickUp task found for leadNumber={}", lead.getLeadNumber());
-                return;
-            }
-            LeadPayloadDto payload = LeadPayloadDto.builder()
-                    .leadNumber(lead.getLeadNumber())
-                    .name(lead.getName())
-                    .location(lead.getLocation())
-                    .startDate(Optional.ofNullable(lead.getStartDate()).map(Object::toString).orElse(null))
-                    .leadType(Optional.ofNullable(lead.getLeadType()).map(Enum::name).orElse(null))
-                    .contactId(Optional.ofNullable(lead.getContact()).map(Contacts::getId).orElse(null))
-                    .build();
-
-            ClickUpTaskRequest req = taskMapper.toClickUpTask(payload);
-            clickUpService.updateTask(taskId, req);
-            log.info("Lead synced to ClickUp → taskId={} leadNumber={}", taskId, lead.getLeadNumber());
-        } catch (Exception ex) {
-            log.error("Failed to sync lead {} with ClickUp: {}", lead.getId(), ex.getMessage(), ex);
-        }
     }
 }

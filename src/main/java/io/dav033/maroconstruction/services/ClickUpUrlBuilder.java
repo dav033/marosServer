@@ -44,11 +44,7 @@ public class ClickUpUrlBuilder {
             .allMatch(s -> s != null && !s.isBlank());
     }
 
-    /**
-     * Construye la URL base a partir de config.getApiUrl()
-     * y añade tantos segmentos de ruta como se especifiquen.
-     * Se usa fromUriString(...) en lugar del obsoleto fromHttpUrl(...).
-     */
+
     private String buildUrl(String... segments) {
         UriComponentsBuilder builder = UriComponentsBuilder
             .fromUriString(config.getApiUrl().trim());  // método moderno, no obsoleto
