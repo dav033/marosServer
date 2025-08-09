@@ -1,0 +1,21 @@
+clickup:
+  api-url: ${CLICKUP_API_URL:https://api.clickup.com/api/v2}
+  client-secret: Bearer ${CLICKUP_ACCESS_TOKEN}
+  routes:
+    map:
+      CONSTRUCTION:
+        listId: ${CLICKUP_LIST_ID_CONSTRUCTION:${CLICKUP_LIST_ID}}
+        leadNumberId: ${CLICKUP_CF_CONSTRUCTION_LEADNUMBER}
+        locationTextId: ${CLICKUP_CF_CONSTRUCTION_LOCATION_TEXT}
+        contactNameId: ${CLICKUP_CF_CONSTRUCTION_CONTACT_NAME}
+        companyNameId: ${CLICKUP_CF_CONSTRUCTION_CUSTOMER_NAME}
+        emailId: ${CLICKUP_CF_CONSTRUCTION_EMAIL}
+        phoneId: ${CLICKUP_CF_CONSTRUCTION_PHONE}
+      PLUMBING:
+        listId: ${CLICKUP_LIST_ID_PLUMBING}
+        leadNumberId: ${CLICKUP_CF_PLUMBING_LEADNUMBER}
+        locationTextId: ${CLICKUP_CF_PLUMBING_LOCATION_TEXT}
+        contactNameId: ${CLICKUP_CF_PLUMBING_CONTACT_NAME}
+        companyNameId: ${CLICKUP_CF_PLUMBING_CUSTOMER_NAME}
+        emailId: ${CLICKUP_CF_PLUMBING_EMAIL}
+        phoneId: ${CLICKUP_CF_PLUMBING_PHONE}

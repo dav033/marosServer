@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
+import io.dav033.maroconstruction.config.ClickUpRoutingService;
+import io.dav033.maroconstruction.enums.LeadType;
 
 import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.dto.LeadPayloadDto;
@@ -18,75 +20,37 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CustomFieldsBuilder {
 
+    private final ClickUpRoutingService routingService;
     private final ContactsService contactsService;
 
     public List<ClickUpTaskRequest.CustomField> build(LeadPayloadDto dto) {
         List<ClickUpTaskRequest.CustomField> fields = new ArrayList<>();
+        LeadType type = LeadType.valueOf(dto.getLeadType().trim().toUpperCase());
+        var r = routingService.route(type);
 
-        log.info("Building custom fields for lead: leadNumber={}, contactId={}", 
-                dto.getLeadNumber(), dto.getContactId());
-
-        // Intentamos obtener datos del contacto
+        // Usar datos del contacto si existen
         Contacts contact = null;
         try {
             contact = contactsService.getContactById(dto.getContactId());
-            log.info("✅ Found contact: id={}, name='{}', email='{}', phone='{}', company='{}'", 
-                    contact.getId(), contact.getName(), contact.getEmail(), 
-                    contact.getPhone(), contact.getCompanyName());
-        } catch (Exception e) { 
-            log.error("❌ ERROR: Could not find contact with id={}: {}", dto.getContactId(), e.getMessage());
-        }
+        } catch (Exception ignored) {}
 
-        // Verificar si tenemos contacto
-        if (contact == null) {
-            log.error("❌ CRITICAL: No contact data available for lead {}. Custom fields for contact will be empty!", 
-                    dto.getLeadNumber());
-        }
-
-        String leadNumber   = Optional.ofNullable(dto.getLeadNumber()).orElse("");
-        String location     = Optional.ofNullable(dto.getLocation()).orElse("");
         String contactName  = contact != null ? Optional.ofNullable(contact.getName()).orElse("") : "";
+        String companyName  = contact != null ? Optional.ofNullable(contact.getCompanyName()).orElse("") : "";
         String contactEmail = contact != null ? Optional.ofNullable(contact.getEmail()).orElse("") : "";
         String contactPhone = contact != null ? Optional.ofNullable(contact.getPhone()).orElse("") : "";
-        String companyName  = contact != null ? Optional.ofNullable(contact.getCompanyName()).orElse("") : "";
 
-        log.info("📋 Final mapped contact fields for ClickUp: name='{}', email='{}', phone='{}', company='{}'", 
-                contactName, contactEmail, contactPhone, companyName);
-
-        // 🏷️ CUSTOM FIELDS DE CLICKUP - MAPEO COMPLETO:
-        log.info("🏷️ === MAPPING DE CUSTOM FIELDS DE CLICKUP ===");
-        
-        // Agregar todos los campos (incluso si están vacíos para permitir limpiar en ClickUp)
-        addField(fields, "524a8b7c-cfb7-4361-886e-59a019f8c5b5", contactName,    "👤 Contact Name");
-        addField(fields, "c8dbf709-6ef9-479f-a915-b20518ac30e6", companyName,   "🏢 Company Name");
-        addField(fields, "f2220992-2039-4a6f-9717-b53ede8f5ec1", contactEmail,  "📧 Contact Email");
-        addField(fields, "9edb199d-5c9f-404f-84f1-ad6a78597175", contactPhone,  "📞 Contact Phone (Primary)");
-        addField(fields, "f94558c8-3c7a-48cb-999c-c697b7842ddf", contactPhone,  "📞 Contact Phone (Secondary)");
-        addField(fields, "401a9851-6f11-4043-b577-4c7b3f03fb03", location,      "📍 Location");
-        addField(fields, "53d6e312-0f63-40ba-8f87-1f3092d8b322", leadNumber,    "🔢 Lead Number");
-        
-        log.info("=== FIN DEL MAPPING ===");
-
-        log.info("✅ Built {} custom fields for ClickUp task update", fields.size());
-        
-        return fields;
+    addField(fields, r.getContactNameId(),  contactName,   "👤 Contact Name");
+    addField(fields, r.getCompanyNameId(),  companyName,   "🏢 Company Name");
+    addField(fields, r.getEmailId(),        contactEmail,  "📧 Contact Email");
+    addField(fields, r.getPhoneId(),        contactPhone,  "📞 Contact Phone");
+    addField(fields, r.getLocationTextId(), dto.getLocation(), "📍 Location");
+    addField(fields, r.getLeadNumberId(),   dto.getLeadNumber(), "🔢 Lead Number");
+    return fields;
     }
 
-    private void addField(
-            List<ClickUpTaskRequest.CustomField> list,
-            String fieldId,
-            String value,
-            String description
-    ) {
-        // Siempre agregar el campo, incluso si está vacío (para permitir limpiar campos en ClickUp)
+    private void addField(List<ClickUpTaskRequest.CustomField> list, String fieldId, String value, String description) {
+        if (fieldId == null) return;
         String finalValue = value != null ? value.trim() : "";
-        
-        if (!finalValue.isEmpty()) {
-            log.info("   ✅ {} → ID: '{}' → Value: '{}'", description, fieldId, finalValue);
-        } else {
-            log.info("   🔄 {} → ID: '{}' → (Valor vacío - se limpiará en ClickUp)", description, fieldId);
-        }
-        
         list.add(ClickUpTaskRequest.CustomField.builder()
             .id(fieldId)
             .value(finalValue)

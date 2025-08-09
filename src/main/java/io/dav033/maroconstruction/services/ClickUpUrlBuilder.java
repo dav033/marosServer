@@ -45,7 +45,7 @@ public class ClickUpUrlBuilder {
     }
 
 
-    private String buildUrl(String... segments) {
+    public String buildUrl(String... segments) {
         UriComponentsBuilder builder = UriComponentsBuilder
             .fromUriString(config.getApiUrl().trim());  // método moderno, no obsoleto
         for (String segment : segments) {

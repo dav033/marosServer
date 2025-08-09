@@ -5,6 +5,7 @@ import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.Leads;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
+import io.dav033.maroconstruction.enums.LeadType;
 import io.dav033.maroconstruction.mappers.LeadToClickUpTaskMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -103,8 +104,8 @@ public class LeadClickUpSyncService {
 
         try {
             ClickUpTaskRequest request = taskMapper.toClickUpTask(payload);
-            ClickUpTaskResponse response = clickUpService.createTask(request);
-
+            LeadType type = LeadType.valueOf(payload.getLeadType().trim().toUpperCase());
+            ClickUpTaskResponse response = clickUpService.createTask(type, request);
             log.info("Tarea ClickUp creada → taskId={} leadNumber={}",
                     Optional.ofNullable(response).map(ClickUpTaskResponse::getId).orElse("n/a"),
                     payload.getLeadNumber());

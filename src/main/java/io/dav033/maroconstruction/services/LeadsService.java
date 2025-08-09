@@ -204,9 +204,23 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     }
 
     private String generateLeadNumber(LeadType type) {
-        String monthYear = LocalDate.now().format(LEAD_NO_FMT);
-        int nextSeq = repository.findMaxSequenceForMonth(type, monthYear).orElse(0) + 1;
-        return "%03d-%s".formatted(nextSeq, monthYear);
+        String mmyy = LocalDate.now().format(LEAD_NO_FMT);
+        List<String> all = repository.findAllLeadNumbersByType(type);
+
+        int max = all.stream()
+            .filter(s -> s != null)
+            .map(s -> {
+                if (type == LeadType.PLUMBING && s.matches("^\\d{3}P-\\d{4}$")) return Integer.parseInt(s.substring(0,3));
+                if (type == LeadType.CONSTRUCTION && s.matches("^\\d{3}-\\d{4}$")) return Integer.parseInt(s.substring(0,3));
+                return -1;
+            })
+            .filter(i -> i >= 0)
+            .max(Integer::compareTo)
+            .orElse(0);
+
+        int next = max + 1;
+        String base = String.format("%03d", next);
+        return (type == LeadType.PLUMBING) ? base + "P-" + mmyy : base + "-" + mmyy;
     }
 
     private ProjectTypeEntity resolveProjectType(Long id) {

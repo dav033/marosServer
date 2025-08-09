@@ -1,6 +1,8 @@
 package io.dav033.maroconstruction.services;
 
 import io.dav033.maroconstruction.config.ClickUpConfig;
+import io.dav033.maroconstruction.config.ClickUpRoutingService;
+import io.dav033.maroconstruction.enums.LeadType;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskListResponse;
@@ -26,18 +28,49 @@ public class ClickUpService {
     private final ClickUpHeadersProvider headersProvider;
     private final RestTemplate restTemplate;
     private final ClickUpConfig config;
+    private final ClickUpRoutingService routingService;
 
-    public ClickUpTaskResponse createTask(ClickUpTaskRequest taskRequest) {
+    // Nuevo método: crear tarea por tipo
+    public ClickUpTaskResponse createTask(LeadType type, ClickUpTaskRequest taskRequest) {
         validateConfigured();
         validateTaskRequest(taskRequest);
-
+        var listId = routingService.route(type).getListId();
         return execute("create task", () -> {
-            String url = urlBuilder.buildCreateTaskUrl();
+            String url = urlBuilder.buildUrl("list", listId, "task");
             HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(taskRequest, headersProvider.get());
-            log.info("Creando tarea en ClickUp: {}", taskRequest.getName());
+            log.info("Creando tarea en ClickUp: {} para tipo {}", taskRequest.getName(), type);
             logCustomFields(taskRequest.getCustomFields());
             return restTemplate.postForObject(url, entity, ClickUpTaskResponse.class);
         });
+    }
+
+    // Nuevo método: listar tareas por tipo
+    public List<ClickUpTaskListResponse.ClickUpTaskSummary> listTasks(LeadType type) {
+        var listId = routingService.route(type).getListId();
+        return execute("list tasks", () -> {
+            String url = urlBuilder.buildUrl("list", listId, "task");
+            HttpEntity<Void> entity = new HttpEntity<>(headersProvider.get());
+            ClickUpTaskListResponse resp = restTemplate.exchange(url, HttpMethod.GET, entity, ClickUpTaskListResponse.class).getBody();
+            return resp == null ? List.of() : resp.getTasks();
+        });
+    }
+
+    // Nuevo método: buscar taskId por leadNumber y tipo
+    public String findTaskIdByLeadNumber(LeadType type, String leadNumber) {
+        var route = routingService.route(type);
+        var fieldId = route.getLeadNumberId();
+        return listTasks(type).stream()
+            .filter(t -> t.getCustomFields() != null)
+            .filter(t -> t.getCustomFields().stream()
+                .anyMatch(f -> fieldId.equals(f.getId()) && leadNumber.equals(String.valueOf(f.getValue()))))
+            .map(ClickUpTaskListResponse.ClickUpTaskSummary::getId)
+            .findFirst().orElse(null);
+    }
+
+    // Nuevo método: eliminar por tipo y leadNumber
+    public boolean deleteTaskByLeadNumber(LeadType type, String leadNumber) {
+        var id = findTaskIdByLeadNumber(type, leadNumber);
+        return id != null && deleteTask(id);
     }
 
     public boolean deleteTask(String taskId) {
