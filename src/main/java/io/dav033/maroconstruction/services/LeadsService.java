@@ -77,6 +77,13 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
      * CONSULTAS
      * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
      */
+    public List<Leads> getAllLeads() {
+        return repository.findAll()
+                .stream()
+                .map(leadMapper::toDto)
+                .toList();
+    }
+
     public List<Leads> getLeadsByType(LeadType type) {
         return repository.findByLeadType(type)
                 .stream()

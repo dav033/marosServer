@@ -25,3 +25,19 @@ public class ProjectTypeController {
         return ResponseEntity.ok(projectTypes);
     }
 }
+
+// Controller adicional para compatibilidad con frontend
+@RestController
+@RequestMapping("/project-types")
+@AllArgsConstructor
+@CrossOrigin
+class ProjectTypesController {
+
+    private ProjectTypeService projectTypeService;
+
+    @GetMapping("/all")
+    public ResponseEntity<List<ProjectType>> getAllProjectTypesPlural() {
+        List<ProjectType> projectTypes = projectTypeService.findAll();
+        return ResponseEntity.ok(projectTypes);
+    }
+}

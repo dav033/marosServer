@@ -14,12 +14,11 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*")
-                        .allowedMethods("GET", "POST", "PUT", "DELETE")
-                        .allowedHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With", "remember-me",
-                                "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Origin",
-                                "Access-Control-Request-Method", "Access-Control-Request-Headers")
-                        .exposedHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With", "remember-me",
+                        .allowedOriginPatterns("*") // Cambiado de allowedOrigins("*") para mejor compatibilidad
+                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH")
+                        .allowedHeaders("*")
+                        .allowCredentials(true)
+                        .exposedHeaders("Authorization", "Content-Type", "Accept", "X-Requested-With", 
                                 "Access-Control-Allow-Origin", "Access-Control-Allow-Headers", "Origin",
                                 "Access-Control-Request-Method", "Access-Control-Request-Headers");
             }
