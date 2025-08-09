@@ -36,12 +36,23 @@ public class ClickUpUrlBuilder {
     }
 
     public boolean isConfigured() {
-        return Stream.of(
-                config.getApiUrl(),
-                config.getListId(),
-                config.getAccessToken()
-            )
-            .allMatch(s -> s != null && !s.isBlank());
+        return config.getApiUrl() != null && !config.getApiUrl().isBlank()
+            && config.getAccessToken() != null && !config.getAccessToken().isBlank();
+    }
+
+    /**
+     * Devuelve la URL para obtener los campos personalizados de una lista de ClickUp.
+     */
+    public String listFields(String listId) {
+        return buildUrl("list", listId, "field");
+    }
+
+    public java.net.URI taskById(String id) {
+        return java.net.URI.create(config.getApiUrl() + "/task/" + id);
+    }
+
+    public java.net.URI taskField(String id, String fieldId) {
+        return java.net.URI.create(config.getApiUrl() + "/task/" + id + "/field/" + fieldId);
     }
 
 

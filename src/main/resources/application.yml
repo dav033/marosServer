@@ -1,21 +1,20 @@
 clickup:
   api-url: ${CLICKUP_API_URL:https://api.clickup.com/api/v2}
-  client-secret: Bearer ${CLICKUP_ACCESS_TOKEN}
+  access-token: ${CLICKUP_ACCESS_TOKEN}   # Debe ser pk_XXXXXXXX (sin 'Bearer ')
   routes:
     map:
       CONSTRUCTION:
-        listId: ${CLICKUP_LIST_ID_CONSTRUCTION:${CLICKUP_LIST_ID}}
-        leadNumberId: ${CLICKUP_CF_CONSTRUCTION_LEADNUMBER}
-        locationTextId: ${CLICKUP_CF_CONSTRUCTION_LOCATION_TEXT}
-        contactNameId: ${CLICKUP_CF_CONSTRUCTION_CONTACT_NAME}
-        companyNameId: ${CLICKUP_CF_CONSTRUCTION_CUSTOMER_NAME}
-        emailId: ${CLICKUP_CF_CONSTRUCTION_EMAIL}
-        phoneId: ${CLICKUP_CF_CONSTRUCTION_PHONE}
+        list-id: ${CLICKUP_LIST_ID_CONSTRUCTION}
+        fields:
+          contactNameId: 524a8b7c-cfb7-4361-886e-59a019f8c5b5
+          customerNameId: c8dbf709-6ef9-479f-a915-b20518ac30e6
+          emailId: f2220992-2039-4a6f-9717-b53ede8f5ec1
+          phoneId: f94558c8-3c7a-48cb-999c-c697b7842ddf
+          phoneTextId: 9edb199d-5c9f-404f-84f1-ad6a78597175
       PLUMBING:
-        listId: ${CLICKUP_LIST_ID_PLUMBING}
-        leadNumberId: ${CLICKUP_CF_PLUMBING_LEADNUMBER}
-        locationTextId: ${CLICKUP_CF_PLUMBING_LOCATION_TEXT}
-        contactNameId: ${CLICKUP_CF_PLUMBING_CONTACT_NAME}
-        companyNameId: ${CLICKUP_CF_PLUMBING_CUSTOMER_NAME}
-        emailId: ${CLICKUP_CF_PLUMBING_EMAIL}
-        phoneId: ${CLICKUP_CF_PLUMBING_PHONE}
+        list-id: ${CLICKUP_LIST_ID_PLUMBING}
+        fields:
+          contactNameId: 524a8b7c-cfb7-4361-886e-59a019f8c5b5
+          customerNameId: c8dbf709-6ef9-479f-a915-b20518ac30e6
+          emailId: f2220992-2039-4a6f-9717-b53ede8f5ec1
+          phoneId: d648567f-d0e4-4ea0-af2d-1a8c5c44c2d8

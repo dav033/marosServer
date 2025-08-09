@@ -1,5 +1,6 @@
-package io.dav033.maroconstruction.services;
 
+
+package io.dav033.maroconstruction.services;
 import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.Leads;
@@ -20,8 +21,8 @@ import java.util.Optional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class LeadClickUpSyncService {
 
+public class LeadClickUpSyncService {
     private final ClickUpService clickUpService;
     private final LeadToClickUpTaskMapper taskMapper;
 
@@ -34,39 +35,56 @@ public class LeadClickUpSyncService {
             log.debug("ClickUp no configurado: se omite sincronización para lead {}", lead.getId());
             return;
         }
-
         try {
-            LeadPayloadDto payload = buildPayloadFromLead(lead);
-            String taskId = clickUpService.findTaskIdByLeadNumber(lead.getLeadNumber());
-            
+            LeadPayloadDto payload = LeadPayloadDto.builder()
+                .leadNumber(lead.getLeadNumber())
+                .name(lead.getName())
+                .location(lead.getLocation())
+                .startDate(Optional.ofNullable(lead.getStartDate()).map(Object::toString).orElse(null))
+                .leadType(Optional.ofNullable(lead.getLeadType()).map(Enum::name).orElse(null))
+                .contactId(Optional.ofNullable(lead.getContact()).map(Contacts::getId).orElse(null))
+                .build();
+            ClickUpTaskRequest req = taskMapper.toClickUpTask(payload);
+            // 1) Buscar en la lista del tipo actual
+            String taskId = clickUpService.findTaskIdByLeadNumber(lead.getLeadType(), lead.getLeadNumber());
             if (taskId == null) {
-                // Si no existe la tarea, la creamos
-                createTask(payload);
+                taskId = clickUpService.findTaskIdByLeadNumberInAnyList(lead.getLeadNumber()).orElse(null);
+            }
+            if (taskId != null) {
+                clickUpService.updateTask(taskId, req);
+                log.info("ClickUp UPDATE ok: taskId={} lead={} type={}", taskId, lead.getLeadNumber(), lead.getLeadType());
             } else {
-                // Si existe, la actualizamos
-                updateTask(taskId, payload);
+                log.error("ClickUp UPDATE omitido: no se encontró tarea para lead={} (type={})", lead.getLeadNumber(), lead.getLeadType());
             }
         } catch (Exception ex) {
             log.error("Error sincronizando lead {} con ClickUp: {}", lead.getId(), ex.getMessage(), ex);
         }
     }
 
+
     /**
      * Sincroniza la creación de un lead con ClickUp.
      * Se llama directamente desde LeadsService después de crear un lead.
      */
-    public ClickUpTaskResponse syncLeadCreate(Leads lead) {
+    public void syncLeadCreate(Leads lead) {
         if (!clickUpService.isConfigured()) {
             log.debug("ClickUp no configurado: se omite creación para lead {}", lead.getId());
-            return null;
+            return;
         }
-
         try {
-            LeadPayloadDto payload = buildPayloadFromLead(lead);
-            return createTask(payload);
+            LeadPayloadDto payload = LeadPayloadDto.builder()
+                .leadNumber(lead.getLeadNumber())
+                .name(lead.getName())
+                .location(lead.getLocation())
+                .startDate(Optional.ofNullable(lead.getStartDate()).map(Object::toString).orElse(null))
+                .leadType(Optional.ofNullable(lead.getLeadType()).map(Enum::name).orElse(null))
+                .contactId(Optional.ofNullable(lead.getContact()).map(Contacts::getId).orElse(null))
+                .build();
+            ClickUpTaskRequest req = taskMapper.toClickUpTask(payload);
+            ClickUpTaskResponse created = clickUpService.createTask(lead.getLeadType(), req);
+            log.info("ClickUp CREATE ok: taskId={} lead={} type={}", created != null ? created.getId() : "n/a", lead.getLeadNumber(), lead.getLeadType());
         } catch (Exception ex) {
             log.error("Error sincronizando creación de lead {} con ClickUp: {}", lead.getId(), ex.getMessage(), ex);
-            return null;
         }
     }
 
@@ -79,9 +97,17 @@ public class LeadClickUpSyncService {
             log.debug("ClickUp no configurado: se omite eliminación para lead {}", lead.getId());
             return false;
         }
-
         try {
-            return deleteTaskByLeadNumber(lead.getLeadNumber());
+            String taskId = clickUpService.findTaskIdByLeadNumber(lead.getLeadType(), lead.getLeadNumber());
+            if (taskId == null) taskId = clickUpService.findTaskIdByLeadNumberInAnyList(lead.getLeadNumber()).orElse(null);
+            if (taskId != null) {
+                clickUpService.deleteTask(taskId);
+                log.info("ClickUp DELETE ok: taskId={} lead={}", taskId, lead.getLeadNumber());
+                return true;
+            } else {
+                log.warn("ClickUp DELETE: no se encontró tarea para lead={}", lead.getLeadNumber());
+                return false;
+            }
         } catch (Exception ex) {
             log.error("Error sincronizando eliminación de lead {} con ClickUp: {}", lead.getId(), ex.getMessage(), ex);
             return false;
@@ -91,93 +117,25 @@ public class LeadClickUpSyncService {
     /**
      * Crea una nueva tarea en ClickUp para un lead.
      */
-    public ClickUpTaskResponse createTask(LeadPayloadDto payload) {
-        if (!clickUpService.isConfigured()) {
-            log.debug("ClickUp no configurado: se omite creación de tarea para lead {}", payload.getLeadNumber());
-            return null;
-        }
-
-        if (payload.getLeadNumber() == null || payload.getLeadNumber().isBlank()) {
-            log.warn("Creación de tarea ClickUp ignorada: lead_number vacío");
-            return null;
-        }
-
-        try {
-            ClickUpTaskRequest request = taskMapper.toClickUpTask(payload);
-            LeadType type = LeadType.valueOf(payload.getLeadType().trim().toUpperCase());
-            ClickUpTaskResponse response = clickUpService.createTask(type, request);
-            log.info("Tarea ClickUp creada → taskId={} leadNumber={}",
-                    Optional.ofNullable(response).map(ClickUpTaskResponse::getId).orElse("n/a"),
-                    payload.getLeadNumber());
-            return response;
-        } catch (Exception ex) {
-            log.error("Error creando tarea ClickUp para lead {}: {}", payload.getLeadNumber(), ex.getMessage(), ex);
-            return null;
-        }
-    }
+    // Eliminado: método createTask(...) que lanzaba UnsupportedOperationException
 
     /**
      * Actualiza una tarea existente en ClickUp.
      */
-    public ClickUpTaskResponse updateTask(String taskId, LeadPayloadDto payload) {
-        if (!clickUpService.isConfigured()) {
-            log.debug("ClickUp no configurado: se omite actualización de tarea {}", taskId);
-            return null;
-        }
-
-        if (payload.getLeadNumber() == null || payload.getLeadNumber().isBlank()) {
-            log.warn("Actualización de tarea ClickUp ignorada: lead_number vacío");
-            return null;
-        }
-
-        try {
-            ClickUpTaskRequest request = taskMapper.toClickUpTask(payload);
-            ClickUpTaskResponse response = clickUpService.updateTask(taskId, request);
-
-            log.info("Tarea ClickUp actualizada → taskId={} leadNumber={}", taskId, payload.getLeadNumber());
-            return response;
-        } catch (Exception ex) {
-            log.error("Error actualizando tarea ClickUp {}: {}", taskId, ex.getMessage(), ex);
-            return null;
-        }
-    }
+    // Eliminado: método updateTask(...) que lanzaba UnsupportedOperationException
 
     /**
      * Elimina una tarea de ClickUp por número de lead.
      */
+    /**
+     * @deprecated Usar clickUpService.deleteTaskByLeadNumber(LeadType, leadNumber) directamente.
+     */
+    @Deprecated
     public boolean deleteTaskByLeadNumber(String leadNumber) {
-        if (!clickUpService.isConfigured()) {
-            log.debug("ClickUp no configurado: se omite eliminación para lead {}", leadNumber);
-            return false;
-        }
-
-        if (leadNumber == null || leadNumber.isBlank()) {
-            log.warn("Eliminación de tarea ClickUp ignorada: lead_number vacío");
-            return false;
-        }
-
-        try {
-            boolean deleted = clickUpService.deleteTaskByLeadNumber(leadNumber);
-            log.info("Tarea ClickUp {} para leadNumber={}",
-                    deleted ? "eliminada" : "no encontrada", leadNumber);
-            return deleted;
-        } catch (Exception ex) {
-            log.error("Error eliminando tarea ClickUp para lead {}: {}", leadNumber, ex.getMessage(), ex);
-            return false;
-        }
+        throw new UnsupportedOperationException("Usar clickUpService.deleteTaskByLeadNumber(LeadType, leadNumber)");
     }
 
     /**
      * Construye un LeadPayloadDto a partir de un objeto Leads.
      */
-    private LeadPayloadDto buildPayloadFromLead(Leads lead) {
-        return LeadPayloadDto.builder()
-                .leadNumber(lead.getLeadNumber())
-                .name(lead.getName())
-                .location(lead.getLocation())
-                .startDate(Optional.ofNullable(lead.getStartDate()).map(Object::toString).orElse(null))
-                .leadType(Optional.ofNullable(lead.getLeadType()).map(Enum::name).orElse(null))
-                .contactId(Optional.ofNullable(lead.getContact()).map(Contacts::getId).orElse(null))
-                .build();
-    }
 }

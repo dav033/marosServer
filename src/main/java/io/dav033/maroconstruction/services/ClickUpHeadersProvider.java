@@ -20,13 +20,23 @@ public class ClickUpHeadersProvider {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String token = config.getAccessToken();
-        if (token != null && !token.isBlank()) {
-            headers.set("Authorization", token);
-            log.info("Token configurado para ClickUp: {}", token.substring(0, Math.min(10, token.length())) + "...");
+        String token = config.getAccessToken(); // Debe venir como 'pk_xxx'
+        if (token == null || token.isBlank()) {
+            log.warn("ClickUp: access token no configurado");
         } else {
-            log.warn("No se encontró token de acceso para ClickUp (config.clickup.access-token)");
+            // Si alguien puso "Bearer pk_...", límpielo para evitar 401.
+            if (token.startsWith("Bearer ")) {
+                token = token.substring("Bearer ".length());
+            }
+            headers.set("Authorization", token);
         }
         return headers;
+    }
+    /**
+     * @deprecated Usar solo accessToken (Bearer ...) para autenticación.
+     */
+    @Deprecated
+    public String getClientSecret() {
+        return config.getClientSecret();
     }
 }

@@ -58,10 +58,11 @@ public class ClickUpService {
     // Nuevo método: buscar taskId por leadNumber y tipo
     public String findTaskIdByLeadNumber(LeadType type, String leadNumber) {
         var route = routingService.route(type);
-        var fieldId = route.getLeadNumberId();
+        var fields = route.getFields();
+        var fieldId = fields != null ? fields.getLeadNumberId() : null;
         return listTasks(type).stream()
             .filter(t -> t.getCustomFields() != null)
-            .filter(t -> t.getCustomFields().stream()
+            .filter(t -> fieldId != null && t.getCustomFields().stream()
                 .anyMatch(f -> fieldId.equals(f.getId()) && leadNumber.equals(String.valueOf(f.getValue()))))
             .map(ClickUpTaskListResponse.ClickUpTaskSummary::getId)
             .findFirst().orElse(null);
@@ -87,36 +88,65 @@ public class ClickUpService {
         return true;
     }
 
-    public ClickUpTaskResponse updateTask(String taskId, ClickUpTaskRequest taskRequest) {
-        validateConfigured();
-        validateTaskId(taskId);
-        validateTaskRequest(taskRequest);
+    public void updateTask(String taskId, ClickUpTaskRequest request) {
+        java.net.URI uri = java.net.URI.create(urlBuilder.buildUpdateTaskUrl(taskId));
+        org.springframework.http.HttpEntity<ClickUpTaskRequest> entity = new org.springframework.http.HttpEntity<>(request, headersProvider.get());
 
-        // Actualiza datos básicos
-        ClickUpTaskRequest basicRequest = ClickUpTaskRequest.builder()
-                .name(taskRequest.getName())
-                .description(taskRequest.getDescription())
-                .tags(taskRequest.getTags())
-                .priority(taskRequest.getPriority())
-                .status(taskRequest.getStatus())
-                .startDate(taskRequest.getStartDate())
-                .dueDate(taskRequest.getDueDate())
-                .timeEstimate(taskRequest.getTimeEstimate())
-                .assignees(taskRequest.getAssignees())
-                .build();
+        org.springframework.http.ResponseEntity<String> res = exchangeWithRetry(uri, org.springframework.http.HttpMethod.PUT, entity);
+        ensure2xx("PUT", uri, res);
 
-        ClickUpTaskResponse response = execute("update task", () -> {
-            String url = urlBuilder.buildUpdateTaskUrl(taskId);
-            HttpEntity<ClickUpTaskRequest> entity = new HttpEntity<>(basicRequest, headersProvider.get());
-            return restTemplate.exchange(url, HttpMethod.PUT, entity, ClickUpTaskResponse.class).getBody();
-        });
-
-        // Actualiza custom fields si existen
-        if (taskRequest.getCustomFields() != null && !taskRequest.getCustomFields().isEmpty()) {
-            updateCustomFields(taskId, taskRequest.getCustomFields());
+        // Actualizar custom fields si aplica
+        if (request.getCustomFields() != null && !request.getCustomFields().isEmpty()) {
+            request.getCustomFields().forEach(field -> {
+                java.net.URI furi = java.net.URI.create(urlBuilder.buildUpdateCustomFieldsUrl(taskId) + "/" + field.getId());
+                org.springframework.http.HttpEntity<java.util.Map<String,Object>> fe = new org.springframework.http.HttpEntity<>(java.util.Map.of("value", field.getValue()), headersProvider.get());
+                org.springframework.http.ResponseEntity<String> fres = exchangeWithRetry(furi, org.springframework.http.HttpMethod.POST, fe);
+                ensure2xx("POST", furi, fres);
+            });
         }
-        return response;
     }
+
+    // -------- Helpers --------
+    private org.springframework.http.ResponseEntity<String> exchangeWithRetry(java.net.URI uri, org.springframework.http.HttpMethod method, org.springframework.http.HttpEntity<?> entity) {
+        int attempts = 0;
+        while (true) {
+            attempts++;
+            try {
+                return restTemplate.exchange(uri, method, entity, String.class);
+            } catch (org.springframework.web.client.HttpStatusCodeException e) {
+                int status = e.getStatusCode().value();
+                if ((status == 429 || status >= 500) && attempts < 3) {
+                    long backoffMs = attempts * 500L;
+                    log.warn("ClickUp {} {} -> {}. Reintentando en {}ms ({} de 2). Body: {}",
+                             method, uri, status, backoffMs, attempts, safe(e.getResponseBodyAsString()));
+                    sleep(backoffMs);
+                    continue;
+                }
+                log.error("ClickUp {} {} fallo definitivo ({}): {}", method, uri, status, safe(e.getResponseBodyAsString()));
+                throw e;
+            } catch (org.springframework.web.client.ResourceAccessException io) {
+                if (attempts < 3) {
+                    long backoffMs = attempts * 500L;
+                    log.warn("ClickUp {} {} I/O error. Reintento en {}ms ({} de 2): {}", method, uri, backoffMs, attempts, io.getMessage());
+                    sleep(backoffMs);
+                    continue;
+                }
+                throw io;
+            }
+        }
+    }
+
+    private void ensure2xx(String method, java.net.URI uri, org.springframework.http.ResponseEntity<String> res) {
+        if (!res.getStatusCode().is2xxSuccessful()) {
+            log.error("ClickUp {} {} -> {} Body: {}", method, uri, res.getStatusCode(), safe(res.getBody()));
+            throw new IllegalStateException("ClickUp: respuesta no exitosa " + res.getStatusCode());
+        } else {
+            log.debug("ClickUp {} {} -> {}", method, uri, res.getStatusCode());
+        }
+    }
+
+    private static String safe(String s) { return s == null ? "" : s.substring(0, Math.min(400, s.length())); }
+    private static void sleep(long ms) { try { Thread.sleep(ms); } catch (InterruptedException ignored) {} }
 
     public boolean deleteTaskByLeadNumber(String leadNumber) {
         log.debug("Buscando tarea para eliminar por lead_number: {}", leadNumber);
@@ -145,7 +175,15 @@ public class ClickUpService {
     }
 
     public boolean isConfigured() {
-        return urlBuilder.isConfigured();
+        boolean urlOk = urlBuilder.isConfigured();
+        boolean routingOk = false;
+        try {
+            // Verifica que haya al menos un tipo ruteado correctamente
+            routingOk = routingService != null && routingService.route(io.dav033.maroconstruction.enums.LeadType.values()[0]) != null;
+        } catch (Exception e) {
+            routingOk = false;
+        }
+        return urlOk && routingOk;
     }
 
     private void updateCustomFields(String taskId, List<ClickUpTaskRequest.CustomField> customFields) {
@@ -196,4 +234,28 @@ public class ClickUpService {
         }
         fields.forEach(f -> log.debug("📌 Field {} → value '{}'", f.getId(), f.getValue()));
     }
+
+    /**
+     * Busca el taskId de un leadNumber en todas las listas configuradas (todos los LeadType).
+     * Devuelve el primer taskId encontrado, o null si no existe en ninguna lista.
+     */
+    /** Busca el taskId por leadNumber iterando SOLO tipos configurados. */
+    public java.util.Optional<String> findTaskIdByLeadNumberInAnyList(String leadNumber) {
+        for (LeadType t : routingService.configuredTypes()) {
+            try {
+                String taskId = findTaskIdByLeadNumber(t, leadNumber);
+                if (taskId != null) return java.util.Optional.of(taskId);
+            } catch (IllegalStateException ex) {
+                log.warn("Ruta incompleta para {}: {}. Continúo con otros tipos.", t, ex.getMessage());
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** True si el LeadType tiene ruteo configurado. */
+    public boolean isTypeConfigured(LeadType type) {
+        return routingService.isConfigured(type);
+    }
+
+    /** Borra por leadNumber dentro de un LeadType (si existe). */
 }
