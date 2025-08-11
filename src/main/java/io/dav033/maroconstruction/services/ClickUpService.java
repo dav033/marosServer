@@ -258,4 +258,7 @@ public class ClickUpService {
     }
 
     /** Borra por leadNumber dentro de un LeadType (si existe). */
+    public ClickUpRoutingService getRoutingService() {
+        return routingService;
+    }
 }
