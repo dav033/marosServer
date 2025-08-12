@@ -99,7 +99,9 @@ public class ClickUpService {
         if (request.getCustomFields() != null && !request.getCustomFields().isEmpty()) {
             request.getCustomFields().forEach(field -> {
                 java.net.URI furi = java.net.URI.create(urlBuilder.buildUpdateCustomFieldsUrl(taskId) + "/" + field.getId());
-                org.springframework.http.HttpEntity<java.util.Map<String,Object>> fe = new org.springframework.http.HttpEntity<>(java.util.Map.of("value", field.getValue()), headersProvider.get());
+                java.util.Map<String, Object> payload = new java.util.HashMap<>();
+                payload.put("value", field.getValue()); // Puede ser null
+                org.springframework.http.HttpEntity<java.util.Map<String,Object>> fe = new org.springframework.http.HttpEntity<>(payload, headersProvider.get());
                 org.springframework.http.ResponseEntity<String> fres = exchangeWithRetry(furi, org.springframework.http.HttpMethod.POST, fe);
                 ensure2xx("POST", furi, fres);
             });
@@ -189,7 +191,8 @@ public class ClickUpService {
     private void updateCustomFields(String taskId, List<ClickUpTaskRequest.CustomField> customFields) {
         customFields.forEach(field -> execute("update custom field", () -> {
             String url = String.format("%s/task/%s/field/%s", config.getApiUrl(), taskId, field.getId());
-            var requestBody = Map.of("value", field.getValue());
+            java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
+            requestBody.put("value", field.getValue()); // Puede ser null
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headersProvider.get());
             restTemplate.postForEntity(url, entity, Void.class);
             return null;

@@ -6,15 +6,19 @@ clickup:
       CONSTRUCTION:
         list-id: ${CLICKUP_LIST_ID_CONSTRUCTION}
         fields:
-          contactNameId: 524a8b7c-cfb7-4361-886e-59a019f8c5b5
-          customerNameId: c8dbf709-6ef9-479f-a915-b20518ac30e6
-          emailId: f2220992-2039-4a6f-9717-b53ede8f5ec1
-          phoneId: f94558c8-3c7a-48cb-999c-c697b7842ddf
-          phoneTextId: 9edb199d-5c9f-404f-84f1-ad6a78597175
+          leadNumberId: ${CLICKUP_CF_CONSTRUCTION_LEADNUMBER}
+          contactNameId: ${CLICKUP_CF_CONSTRUCTION_CONTACT_NAME}
+          customerNameId: ${CLICKUP_CF_CONSTRUCTION_CUSTOMER_NAME}
+          emailId: ${CLICKUP_CF_CONSTRUCTION_EMAIL}
+          phoneTextId: ${CLICKUP_CF_CONSTRUCTION_PHONE}
+          notesId: ${CLICKUP_CF_CONSTRUCTION_NOTES}
+          locationTextId: ${CLICKUP_CF_CONSTRUCTION_LOCATION_TEXT}   # ← CLAVE PARA Address (Text)
+          # Opcional: para el campo Location tipo 'location'
+          locationId: ${CLICKUP_CF_CONSTRUCTION_LOCATION:}
       PLUMBING:
         list-id: ${CLICKUP_LIST_ID_PLUMBING}
         fields:
           contactNameId: 524a8b7c-cfb7-4361-886e-59a019f8c5b5
           customerNameId: c8dbf709-6ef9-479f-a915-b20518ac30e6
           emailId: f2220992-2039-4a6f-9717-b53ede8f5ec1
-          phoneId: d648567f-d0e4-4ea0-af2d-1a8c5c44c2d8
+          # phoneId eliminado para evitar colisiones, solo se usa phoneTextId en CONSTRUCTION
