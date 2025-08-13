@@ -1,24 +1,19 @@
-# --- Etapa 1: compilación con Maven + JDK 23 ---
+# syntax=docker/dockerfile:1.6
+
 FROM maven:3.9.9-eclipse-temurin-23 AS build
 WORKDIR /app
 
-# Copiamos POM y las fuentes
+COPY .mvn/ .mvn/
+COPY mvnw .
 COPY pom.xml .
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -q -B -DskipTests dependency:go-offline
+
 COPY src/ src/
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -q -B -DskipTests package
 
-# Construimos el JAR sin tests
-RUN mvn clean package -DskipTests
-
-# --- Etapa 2: ejecución con JRE 23 sobre Alpine Linux ---
 FROM eclipse-temurin:23-jre-alpine-3.21
 WORKDIR /opt/app
-
-# Copiamos el JAR generado desde la etapa de build
-ARG JAR_FILE=target/*.jar
-COPY --from=build /app/${JAR_FILE} app.jar
-
-# Exponer el puerto de la aplicación
+COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-
-# Comando de arranque
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENV JAVA_TOOL_OPTIONS="-XX:+UseStringDeduplication -XX:MaxRAMPercentage=75.0"
+ENTRYPOINT ["java","-jar","app.jar"]
