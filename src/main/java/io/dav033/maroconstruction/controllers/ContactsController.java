@@ -29,4 +29,32 @@ public class ContactsController {
         Contacts contact = contactsService.getContactByName(request.getName());
         return ResponseEntity.ok(contact);
     }
+
+    // GET /contacts/{id}
+    @GetMapping("/{id}")
+    public ResponseEntity<Contacts> getContactById(@PathVariable Long id) {
+        Contacts contact = contactsService.getContactById(id);
+        return ResponseEntity.ok(contact);
+    }
+
+    // POST /contacts
+    @PostMapping
+    public ResponseEntity<Contacts> createContact(@RequestBody Contacts contact) {
+        Contacts created = contactsService.create(contact);
+        return ResponseEntity.ok(created);
+    }
+
+    // PUT /contacts/{id}
+    @PutMapping("/{id}")
+    public ResponseEntity<Contacts> updateContact(@PathVariable Long id, @RequestBody Contacts contact) {
+        Contacts updated = contactsService.update(id, contact);
+        return ResponseEntity.ok(updated);
+    }
+
+    // DELETE /contacts/{id}
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteContact(@PathVariable Long id) {
+        contactsService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 }
