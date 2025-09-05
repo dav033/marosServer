@@ -7,6 +7,7 @@ import io.dav033.maroconstruction.dto.requests.CreateLeadByExistingContactReques
 import io.dav033.maroconstruction.dto.requests.GetLeadsByTypeRequest;
 import io.dav033.maroconstruction.dto.requests.UpdateLeadRequest;
 import io.dav033.maroconstruction.enums.LeadType;
+import io.dav033.maroconstruction.dto.responses.LeadNumberValidationResponse;
 import io.dav033.maroconstruction.services.LeadsService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -42,15 +43,26 @@ public class LeadsController {
     }
 
     @PostMapping("/new-contact")
-    public ResponseEntity<Leads> createLeadByNewContact(@RequestBody CreateLeadByNewContactRequest request) {
-        Leads lead = leadsService.createLeadWithNewContact(request.getLead(), request.getContact());
+    public ResponseEntity<Leads> createLeadByNewContact(
+            @RequestBody CreateLeadByNewContactRequest request,
+            @RequestParam(name = "skipClickUpSync", required = false, defaultValue = "false") boolean skipClickUpSync) {
+        Leads lead = leadsService.createLeadWithNewContact(request.getLead(), request.getContact(), skipClickUpSync);
         return ResponseEntity.ok(lead);
     }
 
     @PostMapping("/existing-contact")
-    public ResponseEntity<Leads> createLeadByExistingContact(@RequestBody CreateLeadByExistingContactRequest request) {
-        Leads lead = leadsService.createLeadWithExistingContact(request.getLead(), request.getContactId());
+    public ResponseEntity<Leads> createLeadByExistingContact(
+            @RequestBody CreateLeadByExistingContactRequest request,
+            @RequestParam(name = "skipClickUpSync", required = false, defaultValue = "false") boolean skipClickUpSync) {
+        Leads lead = leadsService.createLeadWithExistingContact(request.getLead(), request.getContactId(), skipClickUpSync);
         return ResponseEntity.ok(lead);
+    }
+
+    @GetMapping("/validate/lead-number")
+    public ResponseEntity<LeadNumberValidationResponse> validateLeadNumber(
+            @RequestParam String leadNumber) {
+        LeadNumberValidationResponse res = leadsService.validateLeadNumber(leadNumber);
+        return ResponseEntity.ok(res);
     }
 
     @PutMapping("/{leadId}")

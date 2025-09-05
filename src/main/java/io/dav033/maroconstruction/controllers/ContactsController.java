@@ -2,6 +2,7 @@ package io.dav033.maroconstruction.controllers;
 
 import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.dto.requests.GetContactByNameRequest;
+import io.dav033.maroconstruction.dto.responses.ContactValidationResponse;
 import io.dav033.maroconstruction.services.ContactsService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,12 @@ public class ContactsController {
     // PUT /contacts/{id}
     @PutMapping("/{id}")
     public ResponseEntity<Contacts> updateContact(@PathVariable Long id, @RequestBody Contacts contact) {
+        // Validación defensiva: si el body trae id y no coincide con el de la ruta, responder 400
+        if (contact.getId() != null && !contact.getId().equals(id)) {
+            return ResponseEntity.badRequest().build();
+        }
+        // Normalizar el DTO para evitar que el mapper toque el PK
+        contact.setId(null);
         Contacts updated = contactsService.update(id, contact);
         return ResponseEntity.ok(updated);
     }
@@ -56,5 +63,16 @@ public class ContactsController {
     public ResponseEntity<Void> deleteContact(@PathVariable Long id) {
         contactsService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // GET /contacts/validate?name=...&email=...&phone=...&excludeId=...
+    @GetMapping("/validate")
+    public ResponseEntity<ContactValidationResponse> validateContact(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) Long excludeId) {
+        ContactValidationResponse res = contactsService.validateAvailability(name, email, phone, excludeId);
+        return ResponseEntity.ok(res);
     }
 }

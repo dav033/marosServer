@@ -29,6 +29,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
+import io.dav033.maroconstruction.dto.responses.LeadNumberValidationResponse;
+import org.springframework.util.StringUtils;
+
 @Slf4j
 @Service
 public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
@@ -102,19 +105,29 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
      */
     @Transactional
     public Leads createLeadWithNewContact(Leads lead, Contacts contact) {
+        return createLeadWithNewContact(lead, contact, false);
+    }
+
+    @Transactional
+    public Leads createLeadWithNewContact(Leads lead, Contacts contact, boolean skipClickUpSync) {
         Contacts saved = contactsService.create(contact);
         ContactsEntity contactRef = contactsRepository.getReferenceById(saved.getId());
-        return persistLead(lead, contactRef);
+        return persistLead(lead, contactRef, skipClickUpSync);
     }
 
     @Transactional
     public Leads createLeadWithExistingContact(Leads lead, Long contactId) {
-        ContactsEntity contact = contactsRepository.findById(contactId)
-                .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(contactId));
-        return persistLead(lead, contact);
+        return createLeadWithExistingContact(lead, contactId, false);
     }
 
-    private Leads persistLead(Leads lead, ContactsEntity contact) {
+    @Transactional
+    public Leads createLeadWithExistingContact(Leads lead, Long contactId, boolean skipClickUpSync) {
+        ContactsEntity contact = contactsRepository.findById(contactId)
+                .orElseThrow(() -> new ContactExceptions.ContactNotFoundException(contactId));
+        return persistLead(lead, contact, skipClickUpSync);
+    }
+
+    private Leads persistLead(Leads lead, ContactsEntity contact, boolean skipClickUpSync) {
         applyDefaults(lead);
         ProjectTypeEntity projectType = resolveProjectType(lead.getProjectType().getId());
 
@@ -126,8 +139,12 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
             LeadsEntity saved = repository.save(entity);
             Leads dto = leadMapper.toDto(saved);
             
-            // Sincronizar con ClickUp después de crear
-            leadClickUpSyncService.syncLeadCreate(dto);
+            // Sincronizar con ClickUp después de crear (si no se omite)
+            if (!skipClickUpSync) {
+                leadClickUpSyncService.syncLeadCreate(dto);
+            } else {
+                log.info("Skip ClickUp sync on create for lead {} ({})", dto.getId(), dto.getLeadNumber());
+            }
             
             return dto;
         } catch (DataIntegrityViolationException ex) {
@@ -139,6 +156,14 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     public Leads updateLead(Long id, Leads patch) {
         LeadsEntity entity = repository.findById(id)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
+
+        // Validar leadNumber duplicado si viene en el patch y cambia
+        if (patch.getLeadNumber() != null && !patch.getLeadNumber().equals(entity.getLeadNumber())) {
+            if (repository.existsByLeadNumberAndIdNot(patch.getLeadNumber(), id)) {
+                throw new io.dav033.maroconstruction.exceptions.ValidationException(
+                        "Lead number already exists: %s", patch.getLeadNumber());
+            }
+        }
 
         updateEntityFields(patch, entity);
         entityManager.flush();
@@ -200,7 +225,13 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private void applyDefaults(Leads lead) {
         lead.setId(null);
         lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.TO_DO));
-        lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
+        // Si el cliente no envía leadNumber, autogenerar. Si envía, validar duplicado.
+        if (!StringUtils.hasText(lead.getLeadNumber())) {
+            lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
+        } else if (repository.existsByLeadNumber(lead.getLeadNumber())) {
+            throw new io.dav033.maroconstruction.exceptions.ValidationException(
+                    "Lead number already exists: %s", lead.getLeadNumber());
+        }
     }
 
     private String generateLeadNumber(LeadType type) {
@@ -226,5 +257,20 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private ProjectTypeEntity resolveProjectType(Long id) {
         return projectTypeRepository.findById(id)
                 .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(id));
+    }
+
+    // === Validación de leadNumber ===
+    public LeadNumberValidationResponse validateLeadNumber(String leadNumber) {
+        if (!StringUtils.hasText(leadNumber)) {
+            return LeadNumberValidationResponse.builder()
+                    .valid(false)
+                    .reason("Lead number is required")
+                    .build();
+        }
+        boolean exists = repository.existsByLeadNumber(leadNumber.trim());
+        return LeadNumberValidationResponse.builder()
+                .valid(!exists)
+                .reason(exists ? "Lead number already exists" : "OK")
+                .build();
     }
 }

@@ -31,6 +31,10 @@ public interface LeadsRepository extends JpaRepository<LeadsEntity, Long> {
             """)
     List<String> findAllLeadNumbersByType(@Param("leadType") LeadType leadType);
 
+        boolean existsByLeadNumber(String leadNumber);
+
+  boolean existsByLeadNumberAndIdNot(String leadNumber, Long id);
+
     /*
      * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
      * Nuevo método para generar la secuencia mensual del lead_number
