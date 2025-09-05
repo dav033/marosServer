@@ -5,10 +5,13 @@ WORKDIR /app
 
 COPY .mvn/ .mvn/
 COPY mvnw .
+# Ensure wrapper is executable and line endings are Unix
+RUN chmod +x mvnw && sed -i 's/\r$//' mvnw
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -q -B -DskipTests dependency:go-offline
 
 COPY src/ src/
+RUN chmod +x mvnw
 RUN --mount=type=cache,target=/root/.m2 ./mvnw -q -B -DskipTests package
 
 FROM eclipse-temurin:23-jre-alpine-3.21
