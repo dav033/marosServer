@@ -22,7 +22,3 @@ clickup:
           customerNameId: c8dbf709-6ef9-479f-a915-b20518ac30e6
           emailId: f2220992-2039-4a6f-9717-b53ede8f5ec1
           # phoneId eliminado para evitar colisiones, solo se usa phoneTextId en CONSTRUCTION
-      ROOFING:
-        list-id: 90137585542
-        # Para roofing no se configuran campos personalizados a dicionales
-        # Solo se usa el Name de la tarea que se maneja directamente

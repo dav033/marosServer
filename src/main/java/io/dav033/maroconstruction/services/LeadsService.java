@@ -267,10 +267,71 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                     .reason("Lead number is required")
                     .build();
         }
-        boolean exists = repository.existsByLeadNumber(leadNumber.trim());
+
+        String trimmedLeadNumber = leadNumber.trim();
+        
+        // Verificar si el número exacto ya existe
+        boolean exactExists = repository.existsByLeadNumber(trimmedLeadNumber);
+        if (exactExists) {
+            return LeadNumberValidationResponse.builder()
+                    .valid(false)
+                    .reason("Lead number already exists")
+                    .build();
+        }
+
+        // Extraer el prefijo numérico (primeros 3 dígitos)
+        String numericPrefix = extractNumericPrefix(trimmedLeadNumber);
+        if (numericPrefix == null) {
+            return LeadNumberValidationResponse.builder()
+                    .valid(false)
+                    .reason("Invalid lead number format")
+                    .build();
+        }
+
+        // Verificar si el prefijo numérico ya está en uso por cualquier tipo de lead
+        boolean prefixInUse = isNumericPrefixInUse(numericPrefix);
+        if (prefixInUse) {
+            return LeadNumberValidationResponse.builder()
+                    .valid(false)
+                    .reason("Lead number prefix " + numericPrefix + " is already in use")
+                    .build();
+        }
+
         return LeadNumberValidationResponse.builder()
-                .valid(!exists)
-                .reason(exists ? "Lead number already exists" : "OK")
+                .valid(true)
+                .reason("OK")
                 .build();
+    }
+
+    /**
+     * Extrae el prefijo numérico (primeros 3 dígitos) de un número de lead
+     */
+    private String extractNumericPrefix(String leadNumber) {
+        // Patrones esperados: XXX-MMYY (construction) o XXXP-MMYY (plumbing)
+        if (leadNumber.matches("^\\d{3}P-\\d{4}$") || leadNumber.matches("^\\d{3}-\\d{4}$")) {
+            return leadNumber.substring(0, 3);
+        }
+        return null;
+    }
+
+    /**
+     * Verifica si un prefijo numérico ya está en uso por cualquier tipo de lead
+     */
+    private boolean isNumericPrefixInUse(String numericPrefix) {
+        // Buscar en todos los tipos de lead
+        for (LeadType type : LeadType.values()) {
+            List<String> allNumbers = repository.findAllLeadNumbersByType(type);
+            boolean prefixExists = allNumbers.stream()
+                    .filter(s -> s != null)
+                    .anyMatch(s -> {
+                        String existingPrefix = extractNumericPrefix(s);
+                        return numericPrefix.equals(existingPrefix);
+                    });
+            
+            if (prefixExists) {
+                return true;
+            }
+        }
+        return false;
     }
 }
