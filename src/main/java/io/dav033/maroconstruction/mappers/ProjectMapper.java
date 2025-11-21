@@ -6,5 +6,4 @@ import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
 public interface ProjectMapper extends GenericMapper<Project, ProjectEntity> {
-    // no methods needed here if you’re fine with the inherited signatures
 }

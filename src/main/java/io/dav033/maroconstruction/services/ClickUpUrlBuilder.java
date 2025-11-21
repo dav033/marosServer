@@ -40,10 +40,7 @@ public class ClickUpUrlBuilder {
             && config.getAccessToken() != null && !config.getAccessToken().isBlank();
     }
 
-    /**
-     * Devuelve la URL para obtener los campos personalizados de una lista de ClickUp.
-     */
-    public String listFields(String listId) {
+        public String listFields(String listId) {
         return buildUrl("list", listId, "field");
     }
 
@@ -58,7 +55,7 @@ public class ClickUpUrlBuilder {
 
     public String buildUrl(String... segments) {
         UriComponentsBuilder builder = UriComponentsBuilder
-            .fromUriString(config.getApiUrl().trim());  // método moderno, no obsoleto
+            .fromUriString(config.getApiUrl().trim());  
         for (String segment : segments) {
             builder.pathSegment(segment.trim());
         }

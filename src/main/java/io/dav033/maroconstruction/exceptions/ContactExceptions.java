@@ -1,8 +1,5 @@
 package io.dav033.maroconstruction.exceptions;
 
-/**
- * Excepciones específicas para la gestión de Contactos
- */
 public class ContactExceptions {
 
     public static class ContactNotFoundException extends ResourceNotFoundException {

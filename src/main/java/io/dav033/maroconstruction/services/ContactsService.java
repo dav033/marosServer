@@ -19,7 +19,6 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
 
     @Override
     public Contacts create(Contacts dto) {
-        // Uniqueness validation: name (ci), email (ci), phone
         if (dto.getName() != null && repository.existsByNameIgnoreCase(dto.getName())) {
             throw new ValidationException("Contact name already exists: %s", dto.getName());
         }
@@ -34,7 +33,6 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
 
     @Override
     public Contacts update(Long id, Contacts dto) {
-        // For update, exclude current id
         if (dto.getName() != null && repository.existsByNameIgnoreCaseAndIdNot(dto.getName(), id)) {
             throw new ValidationException("Contact name already exists: %s", dto.getName());
         }

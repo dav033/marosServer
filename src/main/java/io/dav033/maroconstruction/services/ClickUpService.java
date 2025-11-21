@@ -7,8 +7,6 @@ import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskResponse;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskListResponse;
 import io.dav033.maroconstruction.exceptions.ClickUpException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
@@ -19,18 +17,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ClickUpService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ClickUpService.class);
 
     private final ClickUpUrlBuilder urlBuilder;
     private final ClickUpHeadersProvider headersProvider;
     private final RestTemplate restTemplate;
     private final ClickUpConfig config;
     private final ClickUpRoutingService routingService;
+    public ClickUpService(ClickUpUrlBuilder urlBuilder,
+                          ClickUpHeadersProvider headersProvider,
+                          RestTemplate restTemplate,
+                          ClickUpConfig config,
+                          ClickUpRoutingService routingService) {
+        this.urlBuilder = urlBuilder;
+        this.headersProvider = headersProvider;
+        this.restTemplate = restTemplate;
+        this.config = config;
+        this.routingService = routingService;
+    }
 
-    // Nuevo método: crear tarea por tipo
     public ClickUpTaskResponse createTask(LeadType type, ClickUpTaskRequest taskRequest) {
         validateConfigured();
         validateTaskRequest(taskRequest);
@@ -43,8 +51,6 @@ public class ClickUpService {
             return restTemplate.postForObject(url, entity, ClickUpTaskResponse.class);
         });
     }
-
-    // Nuevo método: listar tareas por tipo
     public List<ClickUpTaskListResponse.ClickUpTaskSummary> listTasks(LeadType type) {
         var listId = routingService.route(type).getListId();
         return execute("list tasks", () -> {
@@ -54,8 +60,6 @@ public class ClickUpService {
             return resp == null ? List.of() : resp.getTasks();
         });
     }
-
-    // Nuevo método: buscar taskId por leadNumber y tipo
     public String findTaskIdByLeadNumber(LeadType type, String leadNumber) {
         var route = routingService.route(type);
         var fields = route.getFields();
@@ -67,8 +71,6 @@ public class ClickUpService {
             .map(ClickUpTaskListResponse.ClickUpTaskSummary::getId)
             .findFirst().orElse(null);
     }
-
-    // Nuevo método: eliminar por tipo y leadNumber
     public boolean deleteTaskByLeadNumber(LeadType type, String leadNumber) {
         var id = findTaskIdByLeadNumber(type, leadNumber);
         return id != null && deleteTask(id);
@@ -94,21 +96,17 @@ public class ClickUpService {
 
         org.springframework.http.ResponseEntity<String> res = exchangeWithRetry(uri, org.springframework.http.HttpMethod.PUT, entity);
         ensure2xx("PUT", uri, res);
-
-        // Actualizar custom fields si aplica
         if (request.getCustomFields() != null && !request.getCustomFields().isEmpty()) {
             request.getCustomFields().forEach(field -> {
                 java.net.URI furi = java.net.URI.create(urlBuilder.buildUpdateCustomFieldsUrl(taskId) + "/" + field.getId());
                 java.util.Map<String, Object> payload = new java.util.HashMap<>();
-                payload.put("value", field.getValue()); // Puede ser null
+                payload.put("value", field.getValue()); 
                 org.springframework.http.HttpEntity<java.util.Map<String,Object>> fe = new org.springframework.http.HttpEntity<>(payload, headersProvider.get());
                 org.springframework.http.ResponseEntity<String> fres = exchangeWithRetry(furi, org.springframework.http.HttpMethod.POST, fe);
                 ensure2xx("POST", furi, fres);
             });
         }
     }
-
-    // -------- Helpers --------
     private org.springframework.http.ResponseEntity<String> exchangeWithRetry(java.net.URI uri, org.springframework.http.HttpMethod method, org.springframework.http.HttpEntity<?> entity) {
         int attempts = 0;
         while (true) {
@@ -180,7 +178,6 @@ public class ClickUpService {
         boolean urlOk = urlBuilder.isConfigured();
         boolean routingOk = false;
         try {
-            // Verifica que haya al menos un tipo ruteado correctamente
             routingOk = routingService != null && routingService.route(io.dav033.maroconstruction.enums.LeadType.values()[0]) != null;
         } catch (Exception e) {
             routingOk = false;
@@ -192,7 +189,7 @@ public class ClickUpService {
         customFields.forEach(field -> execute("update custom field", () -> {
             String url = String.format("%s/task/%s/field/%s", config.getApiUrl(), taskId, field.getId());
             java.util.Map<String, Object> requestBody = new java.util.HashMap<>();
-            requestBody.put("value", field.getValue()); // Puede ser null
+            requestBody.put("value", field.getValue()); 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headersProvider.get());
             restTemplate.postForEntity(url, entity, Void.class);
             return null;
@@ -238,12 +235,7 @@ public class ClickUpService {
         fields.forEach(f -> log.debug("📌 Field {} → value '{}'", f.getId(), f.getValue()));
     }
 
-    /**
-     * Busca el taskId de un leadNumber en todas las listas configuradas (todos los LeadType).
-     * Devuelve el primer taskId encontrado, o null si no existe en ninguna lista.
-     */
-    /** Busca el taskId por leadNumber iterando SOLO tipos configurados. */
-    public java.util.Optional<String> findTaskIdByLeadNumberInAnyList(String leadNumber) {
+            public java.util.Optional<String> findTaskIdByLeadNumberInAnyList(String leadNumber) {
         for (LeadType t : routingService.configuredTypes()) {
             try {
                 String taskId = findTaskIdByLeadNumber(t, leadNumber);
@@ -255,13 +247,11 @@ public class ClickUpService {
         return java.util.Optional.empty();
     }
 
-    /** True si el LeadType tiene ruteo configurado. */
-    public boolean isTypeConfigured(LeadType type) {
+        public boolean isTypeConfigured(LeadType type) {
         return routingService.isConfigured(type);
     }
 
-    /** Borra por leadNumber dentro de un LeadType (si existe). */
-    public ClickUpRoutingService getRoutingService() {
+        public ClickUpRoutingService getRoutingService() {
         return routingService;
     }
 }

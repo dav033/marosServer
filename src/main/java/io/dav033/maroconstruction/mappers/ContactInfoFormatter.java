@@ -4,13 +4,15 @@ import org.springframework.stereotype.Component;
 
 import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.services.ContactsService;
-import lombok.RequiredArgsConstructor;
 
 @Component
-@RequiredArgsConstructor
 public class ContactInfoFormatter {
 
     private final ContactsService contactsService;
+
+    public ContactInfoFormatter(ContactsService contactsService) {
+        this.contactsService = contactsService;
+    }
 
     public String formatFor(Long contactId) {
         if (contactId == null) {

@@ -2,7 +2,6 @@ package io.dav033.maroconstruction.controllers;
 
 import io.dav033.maroconstruction.dto.ProjectType;
 import io.dav033.maroconstruction.services.ProjectTypeService;
-import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,11 +12,14 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/project-type")
-@AllArgsConstructor
 @CrossOrigin
 public class ProjectTypeController {
 
-    private ProjectTypeService projectTypeService;
+    private final ProjectTypeService projectTypeService;
+
+    public ProjectTypeController(ProjectTypeService projectTypeService) {
+        this.projectTypeService = projectTypeService;
+    }
 
     @GetMapping("/all")
     public ResponseEntity<List<ProjectType>> getAllProjectTypes() {
@@ -26,14 +28,16 @@ public class ProjectTypeController {
     }
 }
 
-// Controller adicional para compatibilidad con frontend
 @RestController
 @RequestMapping("/project-types")
-@AllArgsConstructor
 @CrossOrigin
 class ProjectTypesController {
 
-    private ProjectTypeService projectTypeService;
+    private final ProjectTypeService projectTypeService;
+
+    public ProjectTypesController(ProjectTypeService projectTypeService) {
+        this.projectTypeService = projectTypeService;
+    }
 
     @GetMapping("/all")
     public ResponseEntity<List<ProjectType>> getAllProjectTypesPlural() {

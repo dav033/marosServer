@@ -21,7 +21,7 @@
 		<!-- Versión de Java y MapStruct -->
 		<java.version>23</java.version>
 		<org.mapstruct.version>1.6.3</org.mapstruct.version>
-		<lombok.version>1.18.34</lombok.version>
+        
 
 		<!-- Codificación por defecto -->
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -59,12 +59,7 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!-- Lombok -->
-		<dependency>
-			<groupId>org.projectlombok</groupId>
-			<artifactId>lombok</artifactId>
-			<optional>true</optional>
-		</dependency>
+        
 
 		<!-- MapStruct -->
 		<dependency>
@@ -72,10 +67,7 @@
 			<artifactId>mapstruct</artifactId>
 			<version>${org.mapstruct.version}</version>
 		</dependency>
-		<!-- mapstruct-processor solo en annotationProcessorPaths -->
-		<!-- lombok-mapstruct-binding solo en annotationProcessorPaths -->
-
-		<!-- Testing -->
+	
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -116,19 +108,9 @@
 					   </compilerArgs>
 					   <annotationProcessorPaths>
 						   <path>
-							   <groupId>org.projectlombok</groupId>
-							   <artifactId>lombok</artifactId>
-							   <version>${lombok.version}</version>
-						   </path>
-						   <path>
 							   <groupId>org.mapstruct</groupId>
 							   <artifactId>mapstruct-processor</artifactId>
 							   <version>${org.mapstruct.version}</version>
-						   </path>
-						   <path>
-							   <groupId>org.projectlombok</groupId>
-							   <artifactId>lombok-mapstruct-binding</artifactId>
-							   <version>0.2.0</version>
 						   </path>
 					   </annotationProcessorPaths>
 				   </configuration>
@@ -142,12 +124,6 @@
 					   <layers>
 						   <enabled>true</enabled>
 					   </layers>
-					   <excludes>
-						   <exclude>
-							   <groupId>org.projectlombok</groupId>
-							   <artifactId>lombok</artifactId>
-						   </exclude>
-					   </excludes>
 				   </configuration>
 			   </plugin>
 		</plugins>

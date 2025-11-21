@@ -1,8 +1,5 @@
 package io.dav033.maroconstruction.exceptions;
 
-/**
- * Excepción específica para errores de ClickUp
- */
 public class ClickUpException extends ExternalServiceException {
 
     private final int statusCode;

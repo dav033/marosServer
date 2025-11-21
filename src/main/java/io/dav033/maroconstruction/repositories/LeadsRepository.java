@@ -11,12 +11,7 @@ import java.util.Optional;
 
 public interface LeadsRepository extends JpaRepository<LeadsEntity, Long> {
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * Consultas existentes
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
-    @Query("SELECT l FROM LeadsEntity l LEFT JOIN FETCH l.contact LEFT JOIN FETCH l.projectType")
+        @Query("SELECT l FROM LeadsEntity l LEFT JOIN FETCH l.contact LEFT JOIN FETCH l.projectType")
     List<LeadsEntity> findAll();
 
     @Query("SELECT l FROM LeadsEntity l LEFT JOIN FETCH l.contact LEFT JOIN FETCH l.projectType WHERE l.leadType = :type")
@@ -35,12 +30,7 @@ public interface LeadsRepository extends JpaRepository<LeadsEntity, Long> {
 
   boolean existsByLeadNumberAndIdNot(String leadNumber, Long id);
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * Nuevo método para generar la secuencia mensual del lead_number
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
-    @Query("""
+        @Query("""
             SELECT MAX(
                 CAST(SUBSTRING(l.leadNumber, 1, 3) AS integer)
             )

@@ -19,7 +19,6 @@ import io.dav033.maroconstruction.repositories.ProjectTypeRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,9 +31,10 @@ import java.util.Optional;
 import io.dav033.maroconstruction.dto.responses.LeadNumberValidationResponse;
 import org.springframework.util.StringUtils;
 
-@Slf4j
 @Service
 public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRepository> {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(LeadsService.class);
 
     public LeadsService(
             LeadsRepository repository,
@@ -54,18 +54,8 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         this.entityManager = entityManager;
     }
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * CONSTANTES
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
     private static final DateTimeFormatter LEAD_NO_FMT = DateTimeFormatter.ofPattern("MMyy");
 
-    /*
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     * DEPENDENCIAS
-     * ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     */
     private final ContactsService contactsService;
     private final ContactsRepository contactsRepository;
     private final ProjectTypeRepository projectTypeRepository;
@@ -138,14 +128,12 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         try {
             LeadsEntity saved = repository.save(entity);
             Leads dto = leadMapper.toDto(saved);
-            
-            // Sincronizar con ClickUp después de crear (si no se omite)
             if (!skipClickUpSync) {
                 leadClickUpSyncService.syncLeadCreate(dto);
             } else {
                 log.info("Skip ClickUp sync on create for lead {} ({})", dto.getId(), dto.getLeadNumber());
             }
-            
+
             return dto;
         } catch (DataIntegrityViolationException ex) {
             throw new LeadExceptions.LeadCreationException("Data integrity error creating lead", ex);
@@ -156,8 +144,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     public Leads updateLead(Long id, Leads patch) {
         LeadsEntity entity = repository.findById(id)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
-
-        // Validar leadNumber duplicado si viene en el patch y cambia
         if (patch.getLeadNumber() != null && !patch.getLeadNumber().equals(entity.getLeadNumber())) {
             if (repository.existsByLeadNumberAndIdNot(patch.getLeadNumber(), id)) {
                 throw new io.dav033.maroconstruction.exceptions.ValidationException(
@@ -209,11 +195,18 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     public boolean deleteLead(Long id) {
         LeadsEntity entity = repository.findById(id)
                 .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
-        
-        // Convertir a DTO y sincronizar eliminación con ClickUp antes de eliminar
         Leads dto = leadMapper.toDto(entity);
-        leadClickUpSyncService.syncLeadDelete(dto);
-        
+        var syncResult = leadClickUpSyncService.syncLeadDelete(dto);
+        if (!isDeleteSyncSuccessful(syncResult)) {
+            String errorMsg = String.format("Failed to sync lead deletion with ClickUp. Status: %s, Diagnosis: %s",
+                    syncResult.getStatus(), syncResult.getDiagnosis());
+            log.error(errorMsg);
+            throw new RuntimeException("ClickUp sync failed: " + errorMsg);
+        }
+
+        log.info("ClickUp sync successful for lead {}. Status: {}, TaskId: {}",
+                id, syncResult.getStatus(), syncResult.getTaskId());
+
         try {
             repository.deleteById(id);
             return true;
@@ -222,10 +215,23 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         }
     }
 
+    private boolean isDeleteSyncSuccessful(Object syncResult) {
+        try {
+            var statusField = syncResult.getClass().getDeclaredField("status");
+            statusField.setAccessible(true);
+            String status = (String) statusField.get(syncResult);
+            return "DELETED".equals(status) ||
+                    "NOT_FOUND".equals(status) ||
+                    "CONFIG_ERROR".equals(status);
+        } catch (Exception e) {
+            log.warn("Could not check sync result status, assuming success", e);
+            return true;
+        }
+    }
+
     private void applyDefaults(Leads lead) {
         lead.setId(null);
         lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.TO_DO));
-        // Si el cliente no envía leadNumber, autogenerar. Si envía, validar duplicado.
         if (!StringUtils.hasText(lead.getLeadNumber())) {
             lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
         } else if (repository.existsByLeadNumber(lead.getLeadNumber())) {
@@ -239,15 +245,17 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         List<String> all = repository.findAllLeadNumbersByType(type);
 
         int max = all.stream()
-            .filter(s -> s != null)
-            .map(s -> {
-                if (type == LeadType.PLUMBING && s.matches("^\\d{3}P-\\d{4}$")) return Integer.parseInt(s.substring(0,3));
-                if (type == LeadType.CONSTRUCTION && s.matches("^\\d{3}-\\d{4}$")) return Integer.parseInt(s.substring(0,3));
-                return -1;
-            })
-            .filter(i -> i >= 0)
-            .max(Integer::compareTo)
-            .orElse(0);
+                .filter(s -> s != null)
+                .map(s -> {
+                    if (type == LeadType.PLUMBING && s.matches("^\\d{3}P-\\d{4}$"))
+                        return Integer.parseInt(s.substring(0, 3));
+                    if (type == LeadType.CONSTRUCTION && s.matches("^\\d{3}-\\d{4}$"))
+                        return Integer.parseInt(s.substring(0, 3));
+                    return -1;
+                })
+                .filter(i -> i >= 0)
+                .max(Integer::compareTo)
+                .orElse(0);
 
         int next = max + 1;
         String base = String.format("%03d", next);
@@ -259,7 +267,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                 .orElseThrow(() -> new ProjectTypeExceptions.ProjectTypeNotFoundException(id));
     }
 
-    // === Validación de leadNumber ===
     public LeadNumberValidationResponse validateLeadNumber(String leadNumber) {
         if (!StringUtils.hasText(leadNumber)) {
             return LeadNumberValidationResponse.builder()
@@ -269,8 +276,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         }
 
         String trimmedLeadNumber = leadNumber.trim();
-        
-        // Verificar si el número exacto ya existe
         boolean exactExists = repository.existsByLeadNumber(trimmedLeadNumber);
         if (exactExists) {
             return LeadNumberValidationResponse.builder()
@@ -278,8 +283,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                     .reason("Lead number already exists")
                     .build();
         }
-
-        // Extraer el prefijo numérico (primeros 3 dígitos)
         String numericPrefix = extractNumericPrefix(trimmedLeadNumber);
         if (numericPrefix == null) {
             return LeadNumberValidationResponse.builder()
@@ -287,8 +290,6 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                     .reason("Invalid lead number format")
                     .build();
         }
-
-        // Verificar si el prefijo numérico ya está en uso por cualquier tipo de lead
         boolean prefixInUse = isNumericPrefixInUse(numericPrefix);
         if (prefixInUse) {
             return LeadNumberValidationResponse.builder()
@@ -303,22 +304,14 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                 .build();
     }
 
-    /**
-     * Extrae el prefijo numérico (primeros 3 dígitos) de un número de lead
-     */
     private String extractNumericPrefix(String leadNumber) {
-        // Patrones esperados: XXX-MMYY (construction) o XXXP-MMYY (plumbing)
         if (leadNumber.matches("^\\d{3}P-\\d{4}$") || leadNumber.matches("^\\d{3}-\\d{4}$")) {
             return leadNumber.substring(0, 3);
         }
         return null;
     }
 
-    /**
-     * Verifica si un prefijo numérico ya está en uso por cualquier tipo de lead
-     */
     private boolean isNumericPrefixInUse(String numericPrefix) {
-        // Buscar en todos los tipos de lead
         for (LeadType type : LeadType.values()) {
             List<String> allNumbers = repository.findAllLeadNumbersByType(type);
             boolean prefixExists = allNumbers.stream()
@@ -327,7 +320,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                         String existingPrefix = extractNumericPrefix(s);
                         return numericPrefix.equals(existingPrefix);
                     });
-            
+
             if (prefixExists) {
                 return true;
             }

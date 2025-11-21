@@ -1,8 +1,5 @@
 package io.dav033.maroconstruction.exceptions;
 
-/**
- * Excepciones específicas para ProjectType
- */
 public class ProjectTypeExceptions {
 
     public static class ProjectTypeNotFoundException extends ResourceNotFoundException {

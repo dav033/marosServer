@@ -9,7 +9,6 @@ import io.dav033.maroconstruction.dto.requests.UpdateLeadRequest;
 import io.dav033.maroconstruction.enums.LeadType;
 import io.dav033.maroconstruction.dto.responses.LeadNumberValidationResponse;
 import io.dav033.maroconstruction.services.LeadsService;
-import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,11 +16,14 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/leads")
-@AllArgsConstructor
 @CrossOrigin
 public class LeadsController {
 
-    private LeadsService leadsService;
+    private final LeadsService leadsService;
+
+    public LeadsController(LeadsService leadsService) {
+        this.leadsService = leadsService;
+    }
 
     @GetMapping
     public ResponseEntity<List<Leads>> getAllLeads() {
@@ -34,8 +36,6 @@ public class LeadsController {
         List<Leads> leads = leadsService.getLeadsByType(request.getType());
         return ResponseEntity.ok(leads);
     }
-
-    // Endpoint GET alternativo para compatibilidad con cache system
     @GetMapping("/type")
     public ResponseEntity<List<Leads>> getLeadsBytypeGet(@RequestParam LeadType type) {
         List<Leads> leads = leadsService.getLeadsByType(type);

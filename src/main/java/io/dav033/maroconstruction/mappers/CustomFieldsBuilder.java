@@ -12,16 +12,19 @@ import io.dav033.maroconstruction.dto.Contacts;
 import io.dav033.maroconstruction.dto.LeadPayloadDto;
 import io.dav033.maroconstruction.dto.webhook.ClickUpTaskRequest;
 import io.dav033.maroconstruction.services.ContactsService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class CustomFieldsBuilder {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomFieldsBuilder.class);
 
     private final ClickUpRoutingService routingService;
     private final ContactsService contactsService;
+
+    public CustomFieldsBuilder(ClickUpRoutingService routingService, ContactsService contactsService) {
+        this.routingService = routingService;
+        this.contactsService = contactsService;
+    }
 
     public List<ClickUpTaskRequest.CustomField> build(LeadPayloadDto dto) {
         List<ClickUpTaskRequest.CustomField> fields = new ArrayList<>();
@@ -42,8 +45,6 @@ public class CustomFieldsBuilder {
             .value(number)
             .build());
         log.debug("FIELD → {} = {} (leadNumber)", leadNumberFieldId, number);
-
-        // Usar datos del contacto si existen
         Contacts contact = null;
         try {
             contact = contactsService.getContactById(dto.getContactId());
@@ -59,8 +60,6 @@ public class CustomFieldsBuilder {
         addField(fields, f != null ? f.getEmailId() : null,        contactEmail,  true);
         addField(fields, f != null ? f.getPhoneId() : null,        contactPhone,  true);
         addField(fields, f != null ? f.getPhoneTextId() : null,    contactPhone,  true);
-
-        // Dirección: location (objeto) y/o short_text
         String addr = dto.getLocation();
         String addrTextId = f != null ? f.getLocationTextId() : null;
         String locationId = null;
@@ -71,22 +70,15 @@ public class CustomFieldsBuilder {
                 locationId = (String) field.get(f);
             } catch (Exception ignored) {}
         }
-
-        // 1) Campo tipo location (objeto)
         if (org.springframework.util.StringUtils.hasText(locationId)) {
             Object locationValue = null;
             if (addr != null && !addr.isBlank()) {
                 java.util.Map<String, Object> loc = new java.util.HashMap<>();
                 loc.put("address", addr.trim());
-                // Si tuviera coordenadas:
-                // loc.put("lat", lead.getLatitude());
-                // loc.put("lng", lead.getLongitude());
                 locationValue = loc;
             }
             addField(fields, locationId, locationValue, true);
         }
-
-        // 2) Campo short_text (opcional)
         addField(fields, addrTextId, addr, true);
 
         return fields;
@@ -98,7 +90,7 @@ public class CustomFieldsBuilder {
             if (clearIfMissing) {
                 out.add(ClickUpTaskRequest.CustomField.builder()
                     .id(fieldId)
-                    .value(null) // LIMPIA el field en ClickUp
+                    .value(null) 
                     .build());
             }
             return;

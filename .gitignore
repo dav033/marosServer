@@ -1,4 +1,11 @@
-HELP.md
+.env
+.env.*
+target/
+/*.iml
+/.idea/
+/.project
+/.classpath
+/.settings/HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
