@@ -17,9 +17,9 @@ public class CorsFilterConfig {
     cfg.setAllowedOriginPatterns(Arrays.asList(
         "http://localhost:*",
         "http://127.0.0.1:*",
-        "https://*.marosconstruction.com"
-    ));
-    cfg.setAllowedMethods(Arrays.asList("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        "https://*.marosconstruction.com",
+        "https://maros-app.netlify.app"));
+    cfg.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     cfg.setAllowedHeaders(Arrays.asList("*"));
     cfg.setAllowCredentials(true);
     cfg.setMaxAge(3600L);
