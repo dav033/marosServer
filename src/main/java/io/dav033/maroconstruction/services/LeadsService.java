@@ -208,7 +208,11 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                 id, syncResult.getStatus(), syncResult.getTaskId());
 
         try {
-            repository.deleteById(id);
+            // Cargar la entidad completamente con todas las relaciones usando FETCH
+            LeadsEntity lead = repository.findByIdWithRelations(id)
+                    .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
+            
+            repository.delete(lead);
             return true;
         } catch (DataIntegrityViolationException ex) {
             throw new DatabaseException("Cannot delete lead due to existing references", ex);
@@ -231,7 +235,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
 
     private void applyDefaults(Leads lead) {
         lead.setId(null);
-        lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.TO_DO));
+        lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.NOT_EXECUTED));
         if (!StringUtils.hasText(lead.getLeadNumber())) {
             lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
         } else if (repository.existsByLeadNumber(lead.getLeadNumber())) {

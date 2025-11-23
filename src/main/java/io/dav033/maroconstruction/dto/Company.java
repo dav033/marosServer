@@ -1,28 +1,32 @@
 package io.dav033.maroconstruction.dto;
 
-public class Contacts {
+import io.dav033.maroconstruction.enums.CompanyType;
+
+public class Company {
     private Long id;
     private String name;
-    private String occupation;
-    private String phone;
-    private String email;
     private String address;
+    private CompanyType type;
+    private Long serviceId;
     private boolean isCustomer;
 
-    public Contacts() {}
+    public Company() {}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public String getOccupation() { return occupation; }
-    public void setOccupation(String occupation) { this.occupation = occupation; }
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
+
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public CompanyType getType() { return type; }
+    public void setType(CompanyType type) { this.type = type; }
+
+    public Long getServiceId() { return serviceId; }
+    public void setServiceId(Long serviceId) { this.serviceId = serviceId; }
+
     public boolean isCustomer() { return isCustomer; }
     public void setCustomer(boolean customer) { isCustomer = customer; }
 }

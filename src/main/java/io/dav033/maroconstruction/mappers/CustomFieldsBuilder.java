@@ -51,14 +51,16 @@ public class CustomFieldsBuilder {
         } catch (Exception ignored) {}
 
         String contactName  = contact != null ? Optional.ofNullable(contact.getName()).orElse("") : "";
-        String companyName  = contact != null ? Optional.ofNullable(contact.getCompanyName()).orElse("") : "";
         String contactEmail = contact != null ? Optional.ofNullable(contact.getEmail()).orElse("") : "";
         String contactPhone = contact != null ? Optional.ofNullable(contact.getPhone()).orElse("") : "";
 
         addField(fields, f != null ? f.getContactNameId() : null,  contactName,   true);
-        addField(fields, f != null ? f.getCustomerNameId() : null, companyName,   true);
+        addField(fields, f != null ? f.getCustomerNameId() : null, contactName,   true);
         addField(fields, f != null ? f.getEmailId() : null,        contactEmail,  true);
-        addField(fields, f != null ? f.getPhoneId() : null,        contactPhone,  true);
+        
+        // Para campos de tipo "phone" en ClickUp, formatear con código de país
+        String formattedPhone = formatPhoneForClickUp(contactPhone);
+        addField(fields, f != null ? f.getPhoneId() : null,        formattedPhone,  true);
         addField(fields, f != null ? f.getPhoneTextId() : null,    contactPhone,  true);
         String addr = dto.getLocation();
         String addrTextId = f != null ? f.getLocationTextId() : null;
@@ -116,5 +118,43 @@ public class CustomFieldsBuilder {
                 .value(value)
                 .build());
         }
+    }
+
+    /**
+     * Formatea un número de teléfono para ClickUp (campos tipo "phone").
+     * ClickUp requiere formato internacional con código de país.
+     * Si el número ya tiene +, se mantiene. Si no, se asume +1 (USA).
+     */
+    private String formatPhoneForClickUp(String phone) {
+        if (phone == null || phone.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Remover espacios, guiones, paréntesis, puntos
+        String cleaned = phone.replaceAll("[\\s\\-().]+", "");
+        
+        // Si ya tiene +, retornar tal cual
+        if (cleaned.startsWith("+")) {
+            return cleaned;
+        }
+        
+        // Si empieza con 1 y tiene 11 dígitos (formato USA), agregar +
+        if (cleaned.startsWith("1") && cleaned.length() == 11) {
+            return "+" + cleaned;
+        }
+        
+        // Si tiene 10 dígitos, asumir USA y agregar +1
+        if (cleaned.length() == 10 && cleaned.matches("\\d{10}")) {
+            return "+1" + cleaned;
+        }
+        
+        // Si tiene otros dígitos, asumir que necesita +1
+        if (cleaned.matches("\\d+")) {
+            return "+1" + cleaned;
+        }
+        
+        // Si no es un número válido, retornar null para evitar el error
+        log.warn("Teléfono en formato inválido para ClickUp: '{}'. Se enviará como null.", phone);
+        return null;
     }
 }

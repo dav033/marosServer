@@ -40,4 +40,7 @@ public interface LeadsRepository extends JpaRepository<LeadsEntity, Long> {
             """)
     Optional<Integer> findMaxSequenceForMonth(@Param("leadType") LeadType leadType,
             @Param("monthYear") String monthYear);
+
+    @Query("SELECT l FROM LeadsEntity l LEFT JOIN FETCH l.contact LEFT JOIN FETCH l.projectType WHERE l.id = :id")
+    Optional<LeadsEntity> findByIdWithRelations(@Param("id") Long id);
 }

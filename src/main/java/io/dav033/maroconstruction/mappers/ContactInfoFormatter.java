@@ -24,7 +24,6 @@ public class ContactInfoFormatter {
                 return "\n**Contact ID:** " + contactId + "\n";
             }
             StringBuilder sb = new StringBuilder("\n**Contact Information:**\n");
-            appendIf(sb, "Company",  c.getCompanyName());
             appendIf(sb, "Contact", c.getName());
             appendIf(sb, "Email",    c.getEmail());
             appendIf(sb, "Phone", c.getPhone());

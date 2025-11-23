@@ -60,7 +60,7 @@ public class ProjectService {
         ContactsEntity c = lead.getContact();
         if (c != null) {
           builder.contactName(c.getName());
-          builder.customerName(c.getCompanyName()); 
+          builder.customerName(c.getName());
         }
       } catch (Exception e) {
         log.debug("Contact not loaded for lead {}", lead.getId());

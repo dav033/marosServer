@@ -1,11 +1,10 @@
 package io.dav033.maroconstruction.enums;
 
 public enum LeadStatus {
-    NEW,
-    UNDETERMINED,
-    TO_DO,
+    NOT_EXECUTED,
+    COMPLETED,
     IN_PROGRESS,
-    DONE,
     LOST,
-    NOT_EXECUTED
+    POSTPONED,
+    PERMITS
 }
