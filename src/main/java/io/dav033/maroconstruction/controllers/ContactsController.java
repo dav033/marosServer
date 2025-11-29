@@ -39,16 +39,20 @@ public class ContactsController {
     }
     @PostMapping
     public ResponseEntity<Contacts> createContact(@RequestBody Contacts contact) {
+        System.out.println("[CREATE] Received contact: name=" + contact.getName() + ", isCustomer=" + contact.isCustomer());
         Contacts created = contactsService.create(contact);
+        System.out.println("[CREATE] Saved contact: id=" + created.getId() + ", isCustomer=" + created.isCustomer());
         return ResponseEntity.ok(created);
     }
     @PutMapping("/{id}")
     public ResponseEntity<Contacts> updateContact(@PathVariable Long id, @RequestBody Contacts contact) {
+        System.out.println("[UPDATE] Received contact for id " + id + ": name=" + contact.getName() + ", isCustomer=" + contact.isCustomer());
         if (contact.getId() != null && !contact.getId().equals(id)) {
             return ResponseEntity.badRequest().build();
         }
         contact.setId(null);
         Contacts updated = contactsService.update(id, contact);
+        System.out.println("[UPDATE] Saved contact: id=" + updated.getId() + ", isCustomer=" + updated.isCustomer());
         return ResponseEntity.ok(updated);
     }
     @DeleteMapping("/{id}")

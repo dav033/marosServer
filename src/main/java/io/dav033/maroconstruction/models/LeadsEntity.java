@@ -36,12 +36,15 @@ public class LeadsEntity {
     private LeadType leadType;
 
         @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "contact_id", nullable = false)
+    @JoinColumn(name = "contact_id", nullable = true)
     private ContactsEntity contact;
 
         @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "type", nullable = false)
+    @JoinColumn(name = "type", nullable = true)
     private ProjectTypeEntity projectType;
+
+    @Column(name = "notes", columnDefinition = "text")
+    private String notesJson;
 
     @Transient
     public Long getContactId() {
@@ -51,6 +54,22 @@ public class LeadsEntity {
     @Transient
     public Long getProjectTypeId() {
         return (projectType != null ? projectType.getId() : null);
+    }
+
+    public java.util.List<String> getNotes() {
+        if (notesJson == null || notesJson.isEmpty()) return new java.util.ArrayList<>();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(notesJson, java.util.List.class);
+        } catch (Exception e) {
+            return new java.util.ArrayList<>();
+        }
+    }
+    public void setNotes(java.util.List<String> notes) {
+        try {
+            this.notesJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(notes);
+        } catch (Exception e) {
+            this.notesJson = "[]";
+        }
     }
 
     public LeadsEntity() {}

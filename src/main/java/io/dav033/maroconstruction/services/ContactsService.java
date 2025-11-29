@@ -6,18 +6,26 @@ import io.dav033.maroconstruction.exceptions.ValidationException;
 import io.dav033.maroconstruction.dto.responses.ContactValidationResponse;
 import io.dav033.maroconstruction.mappers.ContactsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
+import io.dav033.maroconstruction.models.CompanyEntity;
 import io.dav033.maroconstruction.repositories.ContactsRepository;
+import io.dav033.maroconstruction.repositories.CompanyRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
 
 @Service
 public class ContactsService extends BaseService<Contacts, Long, ContactsEntity, ContactsRepository> {
 
-    public ContactsService(ContactsRepository repository, ContactsMapper contactsMapper) {
+    private final CompanyRepository companyRepository;
+
+    public ContactsService(ContactsRepository repository, ContactsMapper contactsMapper, CompanyRepository companyRepository) {
         super(repository, contactsMapper);
+        this.companyRepository = companyRepository;
     }
 
     @Override
+    @Transactional
     public Contacts create(Contacts dto) {
         if (dto.getName() != null && repository.existsByNameIgnoreCase(dto.getName())) {
             throw new ValidationException("Contact name already exists: %s", dto.getName());
@@ -28,10 +36,18 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
         if (dto.getPhone() != null && !dto.getPhone().isBlank() && repository.existsByPhone(dto.getPhone())) {
             throw new ValidationException("Contact phone already exists: %s", dto.getPhone());
         }
-        return super.create(dto);
+        ContactsEntity entity = mapper.toEntity(dto);
+        if (dto.getCompanyId() != null) {
+            CompanyEntity company = companyRepository.findById(dto.getCompanyId())
+                    .orElseThrow(() -> new ValidationException("Company not found with id: %s", dto.getCompanyId()));
+            entity.setCompany(company);
+        }
+        ContactsEntity saved = repository.save(entity);
+        return mapper.toDto(saved);
     }
 
     @Override
+    @Transactional
     public Contacts update(Long id, Contacts dto) {
         if (dto.getName() != null && repository.existsByNameIgnoreCaseAndIdNot(dto.getName(), id)) {
             throw new ValidationException("Contact name already exists: %s", dto.getName());
@@ -42,7 +58,21 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
         if (dto.getPhone() != null && !dto.getPhone().isBlank() && repository.existsByPhoneAndIdNot(dto.getPhone(), id)) {
             throw new ValidationException("Contact phone already exists: %s", dto.getPhone());
         }
-        return super.update(id, dto);
+        ContactsEntity entity = repository.findById(id)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Entity not found with id " + id));
+        mapper.updateEntity(dto, entity);
+        
+        // Handle company relationship
+        if (dto.getCompanyId() != null) {
+            CompanyEntity company = companyRepository.findById(dto.getCompanyId())
+                    .orElseThrow(() -> new ValidationException("Company not found with id: %s", dto.getCompanyId()));
+            entity.setCompany(company);
+        } else {
+            entity.setCompany(null);
+        }
+        
+        ContactsEntity saved = repository.save(entity);
+        return mapper.toDto(saved);
     }
 
     public Contacts getContactByName(String name) {
@@ -96,5 +126,15 @@ public class ContactsService extends BaseService<Contacts, Long, ContactsEntity,
                 .emailReason(emailReason)
                 .phoneReason(phoneReason)
                 .build();
+    }
+
+    public List<Contacts> findCustomers() {
+        List<ContactsEntity> entities = repository.findByCustomerTrue();
+        return mapper.toDtoList(entities);
+    }
+
+    public List<Contacts> findClients() {
+        List<ContactsEntity> entities = repository.findByClientTrue();
+        return mapper.toDtoList(entities);
     }
 }

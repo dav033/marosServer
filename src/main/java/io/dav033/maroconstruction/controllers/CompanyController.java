@@ -47,4 +47,12 @@ public class CompanyController {
         companyService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/contacts")
+    public ResponseEntity<Void> assignContactsToCompany(
+            @PathVariable Long id,
+            @RequestBody List<Long> contactIds) {
+        companyService.assignContactsToCompany(id, contactIds);
+        return ResponseEntity.ok().build();
+    }
 }

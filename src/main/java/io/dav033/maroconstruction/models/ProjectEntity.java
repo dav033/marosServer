@@ -52,8 +52,8 @@ public class ProjectEntity {
 
         @ManyToOne(fetch = FetchType.LAZY,
             cascade = {CascadeType.PERSIST, CascadeType.MERGE},
-            optional = false)
-    @JoinColumn(name = "lead_id", nullable = false)
+            optional = true)
+    @JoinColumn(name = "lead_id", nullable = true)
     private LeadsEntity lead;
 
         @Transient

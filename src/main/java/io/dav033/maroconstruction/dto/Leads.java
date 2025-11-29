@@ -15,6 +15,7 @@ public class Leads {
     private Contacts contact;
     private ProjectType projectType;
     private LeadType leadType;
+    private java.util.List<String> notes;
 
     public Leads() {}
 
@@ -36,4 +37,6 @@ public class Leads {
     public void setProjectType(ProjectType projectType) { this.projectType = projectType; }
     public LeadType getLeadType() { return leadType; }
     public void setLeadType(LeadType leadType) { this.leadType = leadType; }
+    public java.util.List<String> getNotes() { return notes; }
+    public void setNotes(java.util.List<String> notes) { this.notes = notes; }
 }

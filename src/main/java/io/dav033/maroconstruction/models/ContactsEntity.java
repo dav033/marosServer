@@ -12,6 +12,24 @@ import jakarta.persistence.*;
     }
 )
 public class ContactsEntity {
+    @Column(name = "notes", columnDefinition = "text")
+    private String notesJson;
+
+    public java.util.List<String> getNotes() {
+        if (notesJson == null || notesJson.isEmpty()) return new java.util.ArrayList<>();
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(notesJson, java.util.List.class);
+        } catch (Exception e) {
+            return new java.util.ArrayList<>();
+        }
+    }
+    public void setNotes(java.util.List<String> notes) {
+        try {
+            this.notesJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(notes);
+        } catch (Exception e) {
+            this.notesJson = "[]";
+        }
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,7 +52,14 @@ public class ContactsEntity {
     private String address;
 
     @Column(name = "is_customer", nullable = false)
-    private boolean isCustomer = false;
+    private boolean customer = false;
+
+    @Column(name = "is_client", nullable = false)
+    private boolean client = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private CompanyEntity company;
 
     public ContactsEntity() {}
 
@@ -50,8 +75,13 @@ public class ContactsEntity {
     public void setEmail(String email) { this.email = email; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
-    public boolean isCustomer() { return isCustomer; }
-    public void setCustomer(boolean customer) { isCustomer = customer; }
+    public boolean isCustomer() { return customer; }
+    public void setCustomer(boolean customer) { this.customer = customer; }
+    public boolean isClient() { return client; }
+    public void setClient(boolean client) { this.client = client; }
+
+    public CompanyEntity getCompany() { return company; }
+    public void setCompany(CompanyEntity company) { this.company = company; }
 
     @Override
     public boolean equals(Object o) {

@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ContactsRepository extends JpaRepository<ContactsEntity, Long> {
@@ -20,4 +21,8 @@ public interface ContactsRepository extends JpaRepository<ContactsEntity, Long> 
 
     boolean existsByPhone(String phone);
     boolean existsByPhoneAndIdNot(String phone, Long id);
+
+    List<ContactsEntity> findByCustomerTrue();
+    List<ContactsEntity> findByClientTrue();
+    List<ContactsEntity> findByCompanyId(Long companyId);
 }

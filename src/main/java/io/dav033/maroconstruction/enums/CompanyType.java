@@ -1,6 +1,10 @@
 package io.dav033.maroconstruction.enums;
 
 public enum CompanyType {
-    REGULAR,
-    CONTRACTOR
+    DESIGN,
+    HOA,
+    GENERAL_CONTRACTOR,
+    SUPPLIER,
+    SUBCONTRACTOR,
+    OTHER
 }

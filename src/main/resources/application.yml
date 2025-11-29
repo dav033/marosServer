@@ -7,13 +7,13 @@ spring:
   jmx:
     enabled: false
   jpa:
-    generate-ddl: false
+    generate-ddl: true
     show-sql: false
     properties:
       "hibernate.generate_statistics": false
       "hibernate.format_sql": true
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     open-in-view: false
     database-platform: org.hibernate.dialect.PostgreSQLDialect
   datasource:

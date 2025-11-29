@@ -65,8 +65,15 @@ public class LeadsController {
         return ResponseEntity.ok(res);
     }
 
+    @GetMapping("/{leadId}")
+    public ResponseEntity<Leads> getLeadById(@PathVariable Long leadId) {
+        Leads lead = leadsService.getLeadById(leadId);
+        return ResponseEntity.ok(lead);
+    }
+
     @PutMapping("/{leadId}")
     public ResponseEntity<Leads> updateLead(@PathVariable Long leadId, @RequestBody UpdateLeadRequest request) {
+        System.out.println("[LOG] Notas recibidas en controlador: " + request.getLead().getNotes());
         Leads updatedLead = leadsService.updateLead(leadId, request.getLead());
         return ResponseEntity.ok(updatedLead);
     }

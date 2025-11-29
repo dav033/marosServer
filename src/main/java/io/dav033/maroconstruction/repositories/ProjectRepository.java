@@ -22,4 +22,7 @@ public interface ProjectRepository extends JpaRepository<ProjectEntity, Long> {
 
   @Query("SELECT COUNT(p) FROM ProjectEntity p WHERE p.lead IS NOT NULL")
   Long countProjectsWithLead();
+
+  @Query("SELECT p FROM ProjectEntity p WHERE p.lead.id = :leadId")
+  List<ProjectEntity> findByLeadId(Long leadId);
 }

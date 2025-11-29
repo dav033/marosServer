@@ -12,9 +12,11 @@ import io.dav033.maroconstruction.mappers.GenericMapper;
 import io.dav033.maroconstruction.mappers.LeadsMapper;
 import io.dav033.maroconstruction.models.ContactsEntity;
 import io.dav033.maroconstruction.models.LeadsEntity;
+import io.dav033.maroconstruction.models.ProjectEntity;
 import io.dav033.maroconstruction.models.ProjectTypeEntity;
 import io.dav033.maroconstruction.repositories.ContactsRepository;
 import io.dav033.maroconstruction.repositories.LeadsRepository;
+import io.dav033.maroconstruction.repositories.ProjectRepository;
 import io.dav033.maroconstruction.repositories.ProjectTypeRepository;
 import io.dav033.maroconstruction.services.base.BaseService;
 import jakarta.persistence.EntityManager;
@@ -42,6 +44,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
             ContactsService contactsService,
             ContactsRepository contactsRepository,
             ProjectTypeRepository projectTypeRepository,
+            ProjectRepository projectRepository,
             LeadsMapper leadMapper,
             LeadClickUpSyncService leadClickUpSyncService,
             EntityManager entityManager) {
@@ -49,6 +52,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         this.contactsService = contactsService;
         this.contactsRepository = contactsRepository;
         this.projectTypeRepository = projectTypeRepository;
+        this.projectRepository = projectRepository;
         this.leadMapper = leadMapper;
         this.leadClickUpSyncService = leadClickUpSyncService;
         this.entityManager = entityManager;
@@ -59,6 +63,7 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private final ContactsService contactsService;
     private final ContactsRepository contactsRepository;
     private final ProjectTypeRepository projectTypeRepository;
+    private final ProjectRepository projectRepository;
     private final LeadsMapper leadMapper;
     private final LeadClickUpSyncService leadClickUpSyncService;
 
@@ -82,6 +87,20 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                 .stream()
                 .map(leadMapper::toDto)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Leads getLeadById(Long id) {
+        LeadsEntity entity = repository.findById(id)
+                .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
+        // Forzar carga de relaciones lazy
+        if (entity.getContact() != null) {
+            entity.getContact().getName();
+        }
+        if (entity.getProjectType() != null) {
+            entity.getProjectType().getName();
+        }
+        return leadMapper.toDto(entity);
     }
 
     public List<String> getAllLeadNumbers(LeadType type) {
@@ -119,7 +138,35 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
 
     private Leads persistLead(Leads lead, ContactsEntity contact, boolean skipClickUpSync) {
         applyDefaults(lead);
-        ProjectTypeEntity projectType = resolveProjectType(lead.getProjectType().getId());
+        
+        // Auto-generate lead name if empty: {leadNumber}-{location}
+        if (lead.getName() == null || lead.getName().trim().isEmpty()) {
+            if (lead.getLocation() != null && !lead.getLocation().trim().isEmpty()) {
+                lead.setName(lead.getLeadNumber() + "-" + lead.getLocation().trim());
+            } else {
+                throw new io.dav033.maroconstruction.exceptions.ValidationException(
+                    "Location is required when lead name is not provided");
+            }
+        }
+        
+        // Validate location is not empty
+        if (lead.getLocation() == null || lead.getLocation().trim().isEmpty()) {
+            throw new io.dav033.maroconstruction.exceptions.ValidationException(
+                "Location is required");
+        }
+        
+        // Get projectTypeId from ProjectType object or throw error if not present
+        Long projectTypeId = null;
+        if (lead.getProjectType() != null && lead.getProjectType().getId() != null) {
+            projectTypeId = lead.getProjectType().getId();
+        }
+        
+        if (projectTypeId == null) {
+            throw new io.dav033.maroconstruction.exceptions.ValidationException(
+                "Project Type is required");
+        }
+        
+        ProjectTypeEntity projectType = resolveProjectType(projectTypeId);
 
         LeadsEntity entity = leadMapper.toEntity(lead);
         entity.setContact(contact);
@@ -151,7 +198,9 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
             }
         }
 
+        System.out.println("[LOG] Notas recibidas en servicio: " + patch.getNotes());
         updateEntityFields(patch, entity);
+        System.out.println("[LOG] Notas persistidas en entidad: " + entity.getNotes());
         entityManager.flush();
 
         Leads dto = leadMapper.toDto(entity);
@@ -166,14 +215,31 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
         if (dto.getName() != null) {
             entity.setName(dto.getName());
         }
+        // Manejo robusto de startDate:
         if (dto.getStartDate() != null) {
+            // Si el cliente envía una fecha, se respeta
             entity.setStartDate(dto.getStartDate());
+        } else if (entity.getStartDate() == null) {
+            // Si la entidad viene con startDate = null (datos antiguos)
+            // y el cliente no envía fecha, asignamos un valor por defecto
+            entity.setStartDate(LocalDate.now());
         }
         if (dto.getLocation() != null) {
             entity.setLocation(dto.getLocation());
         }
         if (dto.getStatus() != null) {
-            entity.setStatus(dto.getStatus());
+            boolean valid = false;
+            for (LeadStatus s : LeadStatus.values()) {
+                if (s.name().equals(dto.getStatus().name())) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (valid) {
+                entity.setStatus(dto.getStatus());
+            } else {
+                entity.setStatus(LeadStatus.NOT_EXECUTED);
+            }
         }
         if (dto.getLeadType() != null) {
             entity.setLeadType(dto.getLeadType());
@@ -188,6 +254,9 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                     .orElseThrow(
                             () -> new ProjectTypeExceptions.ProjectTypeNotFoundException(dto.getProjectType().getId()));
             entity.setProjectType(projectTypeEntity);
+        }
+        if (dto.getNotes() != null) {
+            entity.setNotes(dto.getNotes());
         }
     }
 
@@ -208,6 +277,13 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
                 id, syncResult.getStatus(), syncResult.getTaskId());
 
         try {
+            // Clear lead references from projects before deletion
+            List<ProjectEntity> projects = projectRepository.findByLeadId(id);
+            for (ProjectEntity project : projects) {
+                project.setLead(null);
+                projectRepository.save(project);
+            }
+            
             // Cargar la entidad completamente con todas las relaciones usando FETCH
             LeadsEntity lead = repository.findByIdWithRelations(id)
                     .orElseThrow(() -> new LeadExceptions.LeadNotFoundException(id));
@@ -236,6 +312,10 @@ public class LeadsService extends BaseService<Leads, Long, LeadsEntity, LeadsRep
     private void applyDefaults(Leads lead) {
         lead.setId(null);
         lead.setStatus(Optional.ofNullable(lead.getStatus()).orElse(LeadStatus.NOT_EXECUTED));
+        // Inicializar startDate si no viene informado
+        if (lead.getStartDate() == null) {
+            lead.setStartDate(LocalDate.now());
+        }
         if (!StringUtils.hasText(lead.getLeadNumber())) {
             lead.setLeadNumber(generateLeadNumber(lead.getLeadType()));
         } else if (repository.existsByLeadNumber(lead.getLeadNumber())) {
